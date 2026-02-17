@@ -2,6 +2,7 @@
 
 import { type ReactNode } from "react";
 import WalletProvider from "@/components/providers/WalletProvider";
+import AuthProvider from "@/components/providers/AuthProvider";
 
 interface Props {
     children: ReactNode;
@@ -9,8 +10,10 @@ interface Props {
 
 export default function Providers({ children }: Props) {
     return (
-        <WalletProvider>
-            {children}
-        </WalletProvider>
+        <AuthProvider>
+            <WalletProvider>
+                {children}
+            </WalletProvider>
+        </AuthProvider>
     );
 }

@@ -220,6 +220,9 @@ export async function analyzeSolanaData(address: string): Promise<OnChainData> {
     const deFiInteractions = analyzeDeFiInteractions(txs);
     const totalTransactions = txs.filter((tx) => tx !== null).length;
 
+    const balanceLamports = await connection.getBalance(new PublicKey(address));
+    const solBalance = balanceLamports / 1000000000; // 1e9 lamports = 1 SOL
+
     return {
         walletAddress: address,
         walletAgeDays,
@@ -227,6 +230,7 @@ export async function analyzeSolanaData(address: string): Promise<OnChainData> {
         deFiInteractions,
         stakingActive: staking.active,
         stakingDurationDays: staking.durationDays,
+        solBalance,
     };
 }
 

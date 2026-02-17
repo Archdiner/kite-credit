@@ -19,6 +19,7 @@ export interface OnChainData {
   }[];
   stakingActive: boolean;
   stakingDurationDays: number;
+  solBalance: number;
 }
 
 // ---------------------------------------------------------------------------

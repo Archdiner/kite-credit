@@ -1,7 +1,15 @@
+// ---------------------------------------------------------------------------
+// POST /api/plaid/exchange
+// ---------------------------------------------------------------------------
+// Exchanges a Plaid public token for an access token.
+// Stores in HTTP-only cookie AND persists encrypted to database.
+// ---------------------------------------------------------------------------
+
 import { NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { plaidClient } from "@/lib/plaid";
 import { successResponse, errorResponse, rateLimit, rateLimitedResponse, getClientIp } from "@/lib/api-utils";
+import { getUserFromToken, upsertConnection } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
     // Rate limit
@@ -34,6 +42,25 @@ export async function POST(req: NextRequest) {
             path: "/",
             maxAge: 30 * 24 * 60 * 60, // 30 days
         });
+
+        // Persist to database if user is authenticated
+        try {
+            const sbToken = cookieStore.get("sb-access-token")?.value;
+            const user = await getUserFromToken(sbToken);
+
+            if (user) {
+                await upsertConnection(
+                    user.id,
+                    "plaid",
+                    response.data.item_id || "plaid_connected",
+                    accessToken,
+                    { item_id: response.data.item_id }
+                );
+            }
+        } catch (dbError) {
+            // Non-fatal: cookie already set
+            console.error("[plaid/exchange] DB persistence failed:", dbError);
+        }
 
         return successResponse({ access_token_set: true });
     } catch (error) {

@@ -6,6 +6,7 @@
 // 2. On-chain data analysis (50%)
 // 3. Financial data analysis via Plaid (50%)
 // 4. GitHub data analysis (bonus)
+// 5. Persists score to database if user is authenticated
 // ---------------------------------------------------------------------------
 
 import { NextRequest } from "next/server";
@@ -16,14 +17,16 @@ import { fetchGitHubData, scoreGitHub } from "@/lib/github";
 import { plaidClient } from "@/lib/plaid";
 import { scoreFinancial } from "@/lib/reclaim";
 import { assembleKiteScore } from "@/lib/scoring";
+import { getConnectedSources } from "@/lib/scoring";
 import { generateAttestation } from "@/lib/attestation";
 import { successResponse, errorResponse } from "@/lib/api-utils";
+import { getUserFromToken, getConnection, decryptToken, saveScore } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
         const cookieStore = await cookies();
-        const plaidAccessToken = cookieStore.get("plaid_access_token")?.value;
+        let plaidAccessToken = cookieStore.get("plaid_access_token")?.value;
 
         const { walletAddress, walletSignature, includeGithub } = body;
 
@@ -46,6 +49,30 @@ export async function POST(req: NextRequest) {
 
         if (!walletSignature || !verifyWalletSignature(walletAddress, nonce, signature)) {
             return errorResponse("Invalid or missing wallet signature", 401);
+        }
+
+        // Try to get authenticated user for DB persistence
+        let userId: string | null = null;
+        try {
+            const sbToken = cookieStore.get("sb-access-token")?.value;
+            const user = await getUserFromToken(sbToken);
+            if (user) {
+                userId = user.id;
+
+                // If no Plaid cookie, try loading from DB
+                if (!plaidAccessToken) {
+                    const plaidConn = await getConnection(user.id, "plaid");
+                    if (plaidConn?.access_token_encrypted) {
+                        try {
+                            plaidAccessToken = decryptToken(plaidConn.access_token_encrypted);
+                        } catch {
+                            console.error("[score] Failed to decrypt stored Plaid token");
+                        }
+                    }
+                }
+            }
+        } catch {
+            // Non-fatal: continue without DB context
         }
 
         // 2. Fetch & Score On-Chain Data
@@ -95,7 +122,20 @@ export async function POST(req: NextRequest) {
         // 4. GitHub Bonus (Optional)
         let githubScore = null;
         if (includeGithub) {
-            const githubToken = cookieStore.get("github_token")?.value;
+            let githubToken = cookieStore.get("github_token")?.value;
+
+            // If no cookie, try loading from DB
+            if (!githubToken && userId) {
+                try {
+                    const ghConn = await getConnection(userId, "github");
+                    if (ghConn?.access_token_encrypted) {
+                        githubToken = decryptToken(ghConn.access_token_encrypted);
+                    }
+                } catch {
+                    console.error("[score] Failed to decrypt stored GitHub token");
+                }
+            }
+
             if (githubToken) {
                 try {
                     const githubData = await fetchGitHubData(githubToken);
@@ -108,7 +148,7 @@ export async function POST(req: NextRequest) {
         }
 
         // 5. AI Explanation (graceful fallback if Gemini unavailable)
-        let explanation = "Your Kite Score is based on on-chain activity, financial health, and developer reputation.";
+        let explanation = "Your Kite Score is currently based on your on-chain activity and developer reputation.";
 
         if (process.env.GEMINI_API_KEY) {
             try {
@@ -116,12 +156,26 @@ export async function POST(req: NextRequest) {
                 const { GoogleGenerativeAI } = await import("@google/generative-ai");
                 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
                 const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+
+                let promptContext = `Wallet: ${walletAddress} (Age: ${onChainData.walletAgeDays} days, DeFi interactions: ${onChainData.deFiInteractions.length}, Balance: ${onChainData.solBalance} SOL)\n`;
+
+                if (financialScore) {
+                    promptContext += `Financial: ${financialContext}\n`;
+                } else {
+                    promptContext += `Financial: Not connected (User is relying on decentralized reputation only).\n`;
+                }
+
+                if (githubScore) {
+                    promptContext += `GitHub: Connected (Score contribution: ${githubScore.score})\n`;
+                }
+
                 const prompt = `Analyze this credit profile for a DeFi lending protocol.
-Wallet: ${walletAddress} (Age: ${onChainData.walletAgeDays} days, DeFi interactions: ${onChainData.deFiInteractions.length})
-Financial: ${financialContext}
-Provide a 2-sentence explanation of their creditworthiness.`;
+${promptContext}
+Provide a 2-sentence explanation of their creditworthiness based heavily on their on-chain behavior and consistency. Do not mention missing bank data negatively.`;
+
                 const aiResult = await model.generateContent(prompt);
-                explanation = aiResult.response.text();
+                const responseText = aiResult.response.text();
+                if (responseText) explanation = responseText;
             } catch (error) {
                 console.error("[score] AI explanation failed, using fallback:", error);
             }
@@ -136,6 +190,17 @@ Provide a 2-sentence explanation of their creditworthiness.`;
 
         // 7. Generate ZK Attestation
         const attestation = generateAttestation(kiteScore);
+
+        // 8. Persist to database if authenticated
+        if (userId) {
+            try {
+                const sources = getConnectedSources(kiteScore.breakdown);
+                await saveScore(userId, kiteScore, attestation, sources);
+            } catch (dbError) {
+                console.error("[score] Failed to persist score:", dbError);
+                // Non-fatal: still return the score
+            }
+        }
 
         return successResponse({
             score: kiteScore,

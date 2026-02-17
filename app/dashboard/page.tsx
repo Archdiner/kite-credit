@@ -5,13 +5,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useAuth } from "@/components/providers/AuthProvider";
 import ScoreDisplay from "@/components/dashboard/ScoreDisplay";
 import ScoreBreakdownPanel from "@/components/dashboard/ScoreBreakdownPanel";
 import PlaidLinkButton from "@/components/dashboard/PlaidLinkButton";
 import AttestationCard from "@/components/dashboard/AttestationCard";
 import ScoreRadarChart from "@/components/dashboard/ScoreRadarChart";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import type { KiteScore, ZKAttestation } from "@/types";
 
 type FlowState = "connect" | "loading" | "results";
@@ -19,14 +20,84 @@ type FlowState = "connect" | "loading" | "results";
 function DashboardContent() {
     const { publicKey, connected, signMessage } = useWallet();
     const { setVisible } = useWalletModal();
+    const { user, loading: authLoading, signOut, accessToken } = useAuth();
+    const router = useRouter();
+    const searchParams = useSearchParams();
+
     const [flowState, setFlowState] = useState<FlowState>("connect");
     const [kiteScore, setKiteScore] = useState<KiteScore | null>(null);
     const [attestation, setAttestation] = useState<ZKAttestation | null>(null);
     const [githubUser, setGithubUser] = useState<string | null>(null);
     const [bankConnected, setBankConnected] = useState(false);
-
     const [error, setError] = useState<string | null>(null);
-    const searchParams = useSearchParams();
+    const [restoringData, setRestoringData] = useState(true);
+
+    // Auth guard: redirect to /auth if not logged in
+    useEffect(() => {
+        if (!authLoading && !user) {
+            router.push("/auth");
+        }
+    }, [authLoading, user, router]);
+
+    // Restore data from database on mount
+    useEffect(() => {
+        if (!user || !accessToken) {
+            setRestoringData(false);
+            return;
+        }
+
+        const restoreData = async () => {
+            try {
+                const res = await fetch("/api/auth/session", {
+                    headers: { Authorization: `Bearer ${accessToken}` },
+                });
+                const data = await res.json();
+
+                if (data.success && data.data) {
+                    const { connections, latestScore } = data.data;
+
+                    // Restore connections
+                    if (connections) {
+                        for (const conn of connections) {
+                            switch (conn.provider) {
+                                case "github":
+                                    if (conn.provider_user_id) {
+                                        setGithubUser(conn.provider_user_id);
+                                    }
+                                    break;
+                                case "plaid":
+                                    setBankConnected(true);
+                                    break;
+                                // solana_wallet is handled by wallet adapter
+                            }
+                        }
+                    }
+
+                    // Restore latest score
+                    if (latestScore) {
+                        setKiteScore({
+                            total: latestScore.total,
+                            tier: latestScore.tier,
+                            breakdown: latestScore.breakdown,
+                            githubBonus: latestScore.githubBonus,
+                            explanation: latestScore.explanation,
+                            timestamp: latestScore.timestamp,
+                        } as KiteScore);
+                        if (latestScore.attestation) {
+                            setAttestation(latestScore.attestation as ZKAttestation);
+                        }
+                        setFlowState("results");
+                    }
+                }
+            } catch (err) {
+                console.error("[dashboard] Failed to restore data:", err);
+            } finally {
+                setRestoringData(false);
+            }
+        };
+
+        restoreData();
+    }, [user, accessToken]);
 
     // Detect GitHub OAuth return and fetch username
     useEffect(() => {
@@ -55,6 +126,20 @@ function DashboardContent() {
         }
     }, [searchParams, githubUser]);
 
+    // Persist wallet connection when it changes
+    useEffect(() => {
+        if (connected && publicKey && accessToken) {
+            fetch("/api/user/wallet", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${accessToken}`,
+                },
+                body: JSON.stringify({ walletAddress: publicKey.toBase58() }),
+            }).catch(() => { /* Non-fatal */ });
+        }
+    }, [connected, publicKey, accessToken]);
+
     const handleCalculateScore = useCallback(async () => {
         if (!publicKey) return;
         setError(null);
@@ -69,9 +154,7 @@ function DashboardContent() {
                 const message = `Kite Credit: verify ownership of ${publicKey.toBase58()} | nonce: ${nonce}`;
                 const messageBytes = new TextEncoder().encode(message);
                 const signatureBytes = await signMessage(messageBytes);
-                // Fix: Use btoa for browser compatibility instead of Buffer
                 const base64Signature = btoa(String.fromCharCode(...new Uint8Array(signatureBytes)));
-                // Send nonce:signature so server can reconstruct the message
                 signature = `${nonce}:${base64Signature}`;
             }
 
@@ -83,8 +166,6 @@ function DashboardContent() {
                     walletAddress: publicKey.toBase58(),
                     walletSignature: signature,
                     includeGithub: !!githubUser,
-
-                    // plaidAccessToken is now handled via HTTP-only cookie
                 }),
             });
 
@@ -101,11 +182,20 @@ function DashboardContent() {
     }, [publicKey, signMessage, githubUser]);
 
     const handleConnectGitHub = () => {
+        // Store access token in cookie before redirecting so the callback can find the user
+        if (accessToken) {
+            document.cookie = `sb-access-token=${accessToken}; path=/; max-age=600; samesite=lax`;
+        }
         window.location.href = "/api/auth/github";
     };
 
     const handlePlaidSuccess = async (publicToken: string) => {
         try {
+            // Store access token in cookie before calling exchange
+            if (accessToken) {
+                document.cookie = `sb-access-token=${accessToken}; path=/; max-age=600; samesite=lax`;
+            }
+
             const res = await fetch("/api/plaid/exchange", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -122,6 +212,37 @@ function DashboardContent() {
             setError(`Bank connection failed: ${message}. Please try again.`);
         }
     };
+
+    const handleSignOut = async () => {
+        await signOut();
+        router.push("/auth");
+    };
+
+    // Show nothing while checking auth or restoring data
+    if (authLoading || !user || restoringData) {
+        return (
+            <div className="relative min-h-screen overflow-hidden font-sans">
+                <div className="fixed inset-0 z-0">
+                    <Image
+                        src="/city_background.png"
+                        alt=""
+                        fill
+                        className="object-cover object-center"
+                        priority
+                        quality={90}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-b from-slate-900/40 via-slate-900/60 to-slate-900/90" />
+                </div>
+                <div className="relative z-10 flex items-center justify-center min-h-screen">
+                    <motion.div
+                        className="w-12 h-12 bg-gradient-to-br from-orange-500 to-sky-500 rotate-45"
+                        animate={{ rotate: [45, 135, 225, 315, 405], scale: [1, 1.1, 1, 0.9, 1] }}
+                        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                    />
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="relative min-h-screen overflow-hidden font-sans">
@@ -150,12 +271,26 @@ function DashboardContent() {
                                 Kite Credit
                             </h1>
                         </div>
-                        <a
-                            href="/"
-                            className="text-sm text-white/60 hover:text-white transition-colors tracking-widest uppercase"
-                        >
-                            ← Home
-                        </a>
+                        <div className="flex items-center gap-4">
+                            <div className="hidden sm:flex items-center gap-2 bg-white/5 border border-white/10 px-3 py-1.5 rounded-lg">
+                                <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                                <span className="text-xs text-white/60 font-mono">
+                                    {user.name || user.email}
+                                </span>
+                            </div>
+                            <button
+                                onClick={handleSignOut}
+                                className="text-xs text-white/40 hover:text-white/70 transition-colors tracking-widest uppercase border border-white/10 px-3 py-1.5 rounded-lg hover:border-white/20"
+                            >
+                                Sign Out
+                            </button>
+                            <a
+                                href="/"
+                                className="text-sm text-white/60 hover:text-white transition-colors tracking-widest uppercase"
+                            >
+                                ← Home
+                            </a>
+                        </div>
                     </div>
                 </header>
 
@@ -223,7 +358,6 @@ function DashboardContent() {
                                                 <button
                                                     className="w-full py-3 bg-gradient-to-r from-sky-500 to-blue-600 text-white font-bold tracking-wider uppercase text-sm rounded-lg hover:from-sky-400 hover:to-blue-500 transition-all shadow-lg"
                                                     onClick={() => {
-                                                        // Trigger wallet modal
                                                         setVisible(true);
                                                     }}
                                                 >
@@ -233,38 +367,32 @@ function DashboardContent() {
                                         </div>
                                     </motion.div>
 
-                                    {/* Financial Verification Card */}
+                                    {/* Financial Verification Card (Coming Soon) */}
                                     <motion.div
                                         initial={{ opacity: 0, y: 30 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ delay: 0.5 }}
-                                        className="relative group"
+                                        className="relative group overflow-hidden"
                                     >
-                                        <div className="absolute inset-0 bg-gradient-to-br from-orange-500/20 to-amber-600/20 rounded-xl blur-xl group-hover:blur-2xl transition-all opacity-60" />
-                                        <div className="relative bg-slate-900/80 backdrop-blur-lg rounded-xl p-6 border border-orange-500/20 hover:border-orange-400/40 transition-all shadow-2xl">
+                                        <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 to-amber-600/10 rounded-xl blur-xl opacity-40" />
+                                        <div className="relative bg-slate-900/40 backdrop-blur-lg rounded-xl p-6 border border-white/5 shadow-2xl h-full flex flex-col grayscale opacity-70 hover:opacity-100 hover:grayscale-0 transition-all duration-500">
+                                            <div className="absolute top-3 right-3 bg-white/10 text-white/60 text-[10px] uppercase font-bold tracking-widest px-2 py-1 rounded border border-white/10">
+                                                Coming Soon
+                                            </div>
+
                                             <div className="flex items-center gap-3 mb-4">
-                                                <div className="w-3 h-3 bg-orange-400 rotate-45" />
-                                                <h3 className="text-lg font-bold text-white tracking-wide uppercase">
+                                                <div className="w-3 h-3 bg-orange-400 rotate-45 opacity-50" />
+                                                <h3 className="text-lg font-bold text-white/50 tracking-wide uppercase">
                                                     Financial
                                                 </h3>
-                                                <span className="ml-auto text-xs text-orange-400 font-mono">50%</span>
                                             </div>
-                                            <p className="text-sm text-white/60 mb-6 leading-relaxed">
+                                            <p className="text-sm text-white/30 mb-6 leading-relaxed">
                                                 ZK-verified bank balance, income consistency, and cash flow health.
                                             </p>
-                                            {bankConnected ? (
-                                                <div className="flex items-center gap-2 bg-orange-500/10 border border-orange-400/30 rounded-lg px-4 py-3">
-                                                    <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                                                    <span className="text-sm text-orange-200 font-mono">Bank Connected (Plaid)</span>
-                                                </div>
-                                            ) : (
-                                                <PlaidLinkButton
-                                                    onSuccess={handlePlaidSuccess}
-                                                    className="w-full py-3 bg-gradient-to-r from-orange-500 to-amber-600 text-white font-bold tracking-wider uppercase text-sm rounded-lg hover:from-orange-400 hover:to-amber-500 transition-all shadow-lg"
-                                                >
-                                                    Connect Bank Account
-                                                </PlaidLinkButton>
-                                            )}
+
+                                            <div className="mt-auto w-full py-3 bg-white/5 border border-white/5 text-white/20 font-bold tracking-wider uppercase text-sm rounded-lg text-center cursor-not-allowed">
+                                                Connect Bank
+                                            </div>
                                         </div>
                                     </motion.div>
 

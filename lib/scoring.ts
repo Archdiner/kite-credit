@@ -68,7 +68,12 @@ function calculateFiveFactorScore(
     // -------------------------------------------------------------------------
     // 1. Payment History (35%) - Max 350 pts
     // -------------------------------------------------------------------------
-    const onChainPaymentScore = Math.min(175, Math.floor((onChain.breakdown.repaymentHistory / 125) * 175));
+    // If financial data is missing, scale on-chain repayment history to full 350 pts
+    const onChainPaymentRaw = onChain.breakdown.repaymentHistory; // 0-125 scale usually
+    const onChainPaymentScore = financial
+        ? Math.min(175, Math.floor((onChainPaymentRaw / 125) * 175))
+        : Math.min(350, Math.floor((onChainPaymentRaw / 125) * 350));
+
     const bankPaymentScore = financial
         ? Math.min(175, Math.floor((financial.breakdown.incomeConsistency / 165) * 175))
         : 0;
@@ -78,7 +83,12 @@ function calculateFiveFactorScore(
     // -------------------------------------------------------------------------
     // 2. Utilization (30%) - Max 300 pts
     // -------------------------------------------------------------------------
-    const onChainUtilization = Math.min(150, Math.floor((onChain.breakdown.staking / 60) * 150));
+    // If financial data is missing, scale on-chain staking/collateral to full 300 pts
+    const onChainUtilizationRaw = onChain.breakdown.staking; // 0-60 scale usually
+    const onChainUtilization = financial
+        ? Math.min(150, Math.floor((onChainUtilizationRaw / 60) * 150))
+        : Math.min(300, Math.floor((onChainUtilizationRaw / 60) * 300));
+
     const bankUtilization = financial
         ? Math.min(150, Math.floor((financial.breakdown.balanceHealth / 250) * 150))
         : 0;
@@ -98,9 +108,12 @@ function calculateFiveFactorScore(
     // -------------------------------------------------------------------------
     // 5. New Credit (10%) - Max 100 pts
     // -------------------------------------------------------------------------
+    // If no financial data, we give a "base" score for not spamming new wallets,
+    // or we can map it to "recent interactions" on chain. 
+    // For MVP, if on-chain only, we'll award 75 points as a baseline "Safe" score.
     const newCreditScore = financial
         ? Math.min(100, Math.floor((financial.breakdown.verificationBonus / 85) * 100))
-        : 50;
+        : 75;
 
     return {
         paymentHistory: {

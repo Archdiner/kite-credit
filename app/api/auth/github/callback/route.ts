@@ -2,13 +2,14 @@
 // GET /api/auth/github/callback
 // ---------------------------------------------------------------------------
 // Handles the OAuth callback from GitHub. Validates the CSRF state,
-// exchanges the authorization code for an access token, and stores
-// the token in an HTTP-only secure cookie (never in localStorage).
+// exchanges the authorization code for an access token, stores it in
+// an HTTP-only cookie AND persists to the database if user is logged in.
 // ---------------------------------------------------------------------------
 
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getAppUrl } from "@/lib/env";
+import { getUserFromToken, upsertConnection, encryptToken } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
     const url = new URL(request.url);
@@ -71,6 +72,32 @@ export async function GET(request: NextRequest) {
             maxAge: 60 * 60 * 24 * 7, // 7 days
             path: "/",
         });
+
+        // Persist to database if user is authenticated
+        try {
+            // Try to get user from the sb-access-token cookie
+            const sbToken = cookieStore.get("sb-access-token")?.value;
+            const user = await getUserFromToken(sbToken);
+
+            if (user) {
+                // Fetch GitHub username
+                const ghUserRes = await fetch("https://api.github.com/user", {
+                    headers: { Authorization: `Bearer ${tokenData.access_token}` },
+                });
+                const ghUserData = await ghUserRes.json();
+
+                await upsertConnection(
+                    user.id,
+                    "github",
+                    ghUserData.login || null,
+                    tokenData.access_token,
+                    { scope: tokenData.scope }
+                );
+            }
+        } catch (dbError) {
+            // Non-fatal: cookie already set, DB persistence is bonus
+            console.error("[github/callback] DB persistence failed:", dbError);
+        }
 
         return NextResponse.redirect(`${appUrl}/dashboard?github=connected`);
     } catch (err) {
