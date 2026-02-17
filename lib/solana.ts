@@ -2,7 +2,7 @@
 // Solana on-chain analysis
 // ---------------------------------------------------------------------------
 // Reads wallet history from mainnet-beta via QuickNode RPC and produces
-// the on-chain sub-score (40% of the Kite Score, range 0-400).
+// the on-chain sub-score (50% of the Kite Score, range 0-500).
 // ---------------------------------------------------------------------------
 
 import { Connection, PublicKey, type ParsedTransactionWithMeta } from "@solana/web3.js";
@@ -217,61 +217,61 @@ export async function analyzeWallet(address: string): Promise<OnChainData> {
 }
 
 // ---------------------------------------------------------------------------
-// Scoring (0-400)
+// Scoring (0-500)
 // ---------------------------------------------------------------------------
 
 export function scoreOnChain(data: OnChainData): OnChainScore {
-    // Wallet age: 0-100
-    // 0 days = 0, 30 days = 25, 180 days = 60, 365+ days = 100
-    const walletAge = Math.min(100, Math.floor(
+    // Wallet age: 0-125
+    // 0 days = 0, 30 days = 30, 180 days = 75, 365+ days = 125
+    const walletAge = Math.min(125, Math.floor(
         data.walletAgeDays <= 0
             ? 0
             : data.walletAgeDays < 30
-                ? (data.walletAgeDays / 30) * 25
+                ? (data.walletAgeDays / 30) * 30
                 : data.walletAgeDays < 180
-                    ? 25 + ((data.walletAgeDays - 30) / 150) * 35
-                    : 60 + ((Math.min(data.walletAgeDays, 730) - 180) / 550) * 40
+                    ? 30 + ((data.walletAgeDays - 30) / 150) * 45
+                    : 75 + ((Math.min(data.walletAgeDays, 730) - 180) / 550) * 50
     ));
 
-    // DeFi activity: 0-150
+    // DeFi activity: 0-190
     // Number of unique protocols interacted with + volume of interactions
     const uniqueProtocols = data.deFiInteractions.length;
     const totalDeFiTxs = data.deFiInteractions.reduce((sum, d) => sum + d.count, 0);
-    const protocolDiversity = Math.min(50, uniqueProtocols * 12.5); // max 4+ protocols = 50
-    const deFiVolume = Math.min(100, Math.floor(
+    const protocolDiversity = Math.min(65, uniqueProtocols * 16); // max 4+ protocols = 64
+    const deFiVolume = Math.min(125, Math.floor(
         totalDeFiTxs <= 0
             ? 0
             : totalDeFiTxs < 10
-                ? (totalDeFiTxs / 10) * 30
+                ? (totalDeFiTxs / 10) * 40
                 : totalDeFiTxs < 50
-                    ? 30 + ((totalDeFiTxs - 10) / 40) * 40
-                    : 70 + ((Math.min(totalDeFiTxs, 200) - 50) / 150) * 30
+                    ? 40 + ((totalDeFiTxs - 10) / 40) * 50
+                    : 90 + ((Math.min(totalDeFiTxs, 200) - 50) / 150) * 35
     ));
-    const deFiActivity = Math.min(150, Math.floor(protocolDiversity + deFiVolume));
+    const deFiActivity = Math.min(190, Math.floor(protocolDiversity + deFiVolume));
 
-    // Repayment history: 0-100
+    // Repayment history: 0-125
     // For MVP, we approximate via successful DeFi tx ratio and general tx success
-    const repaymentHistory = Math.min(100, Math.floor(
+    const repaymentHistory = Math.min(125, Math.floor(
         data.totalTransactions <= 0
             ? 0
             : data.totalTransactions < 20
-                ? (data.totalTransactions / 20) * 40
+                ? (data.totalTransactions / 20) * 50
                 : data.totalTransactions < 100
-                    ? 40 + ((data.totalTransactions - 20) / 80) * 30
-                    : 70 + (Math.min(totalDeFiTxs, 50) / 50) * 30
+                    ? 50 + ((data.totalTransactions - 20) / 80) * 40
+                    : 90 + (Math.min(totalDeFiTxs, 50) / 50) * 35
     ));
 
-    // Staking: 0-50
+    // Staking: 0-60
     const stakingScore = !data.stakingActive
         ? 0
-        : Math.min(50, Math.floor(
-            10 + (Math.min(data.stakingDurationDays, 365) / 365) * 40
+        : Math.min(60, Math.floor(
+            12 + (Math.min(data.stakingDurationDays, 365) / 365) * 48
         ));
 
     const total = walletAge + deFiActivity + repaymentHistory + stakingScore;
 
     return {
-        score: Math.min(400, total),
+        score: Math.min(500, total),
         breakdown: {
             walletAge,
             deFiActivity,

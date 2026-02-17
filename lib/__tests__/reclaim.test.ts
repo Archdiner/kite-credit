@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// Financial scoring and attestation tests
+// Financial scoring and attestation tests (rescaled to 0-500)
 // ---------------------------------------------------------------------------
 
 import { scoreFinancial, generateMockProof } from "../reclaim";
@@ -34,10 +34,10 @@ describe("scoreFinancial", () => {
             provider: "chase",
         };
         const result = scoreFinancial(verified);
-        expect(result.breakdown.verificationBonus).toBe(50);
+        expect(result.breakdown.verificationBonus).toBe(85);
     });
 
-    it("never exceeds 300", () => {
+    it("never exceeds 500", () => {
         const maxed: FinancialData = {
             verified: true,
             proofHash: "zk_real",
@@ -45,7 +45,7 @@ describe("scoreFinancial", () => {
             incomeConsistency: true,
             provider: "chase",
         };
-        expect(scoreFinancial(maxed).score).toBeLessThanOrEqual(300);
+        expect(scoreFinancial(maxed).score).toBeLessThanOrEqual(500);
     });
 });
 
@@ -60,12 +60,12 @@ describe("generateMockProof", () => {
 
 describe("attestation", () => {
     const mockScore: KiteScore = {
-        total: 500,
-        tier: "Steady",
+        total: 650,
+        tier: "Strong",
         breakdown: {
-            onChain: { score: 200, breakdown: { walletAge: 50, deFiActivity: 80, repaymentHistory: 50, staking: 20 } },
-            github: { score: 150, breakdown: { accountAge: 30, repoPortfolio: 40, commitConsistency: 50, communityTrust: 30 } },
-            financial: { score: 150, breakdown: { balanceHealth: 80, incomeConsistency: 50, verificationBonus: 20 } },
+            onChain: { score: 300, breakdown: { walletAge: 80, deFiActivity: 120, repaymentHistory: 70, staking: 30 } },
+            github: null,
+            financial: { score: 350, breakdown: { balanceHealth: 150, incomeConsistency: 130, verificationBonus: 70 } },
         },
         explanation: "Test explanation",
         timestamp: new Date().toISOString(),
@@ -73,11 +73,11 @@ describe("attestation", () => {
 
     it("generates a valid attestation", () => {
         const attestation = generateAttestation(mockScore);
-        expect(attestation.kite_score).toBe(500);
-        expect(attestation.tier).toBe("Steady");
+        expect(attestation.kite_score).toBe(650);
+        expect(attestation.tier).toBe("Strong");
         expect(attestation.verified_attributes).toContain("solana_active");
-        expect(attestation.verified_attributes).toContain("github_linked");
         expect(attestation.verified_attributes).toContain("bank_verified");
+        expect(attestation.verified_attributes).not.toContain("github_linked");
         expect(attestation.proof).toMatch(/^0x/);
         expect(attestation.version).toBe("1.0");
     });

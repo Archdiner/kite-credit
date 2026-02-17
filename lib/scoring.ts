@@ -1,11 +1,14 @@
 // ---------------------------------------------------------------------------
-// Scoring Engine -- The Lift Equation
+// Scoring Engine -- The Lift Equation (v2)
 // ---------------------------------------------------------------------------
-// Combines sub-scores from on-chain, GitHub, and financial data into a
-// single Kite Score (0-1000) with tier classification.
+// Combines sub-scores from on-chain and financial data into a single
+// Kite Score (0-1000) with tier classification.
+//
+// Core score: On-chain (0-500, 50%) + Financial (0-500, 50%) = 0-1000
+// Optional:   GitHub bonus (0-100) does NOT add to max but can boost
 // ---------------------------------------------------------------------------
 
-import type { ScoreTier, ScoreBreakdown, KiteScore, OnChainScore, GitHubScore, FinancialScore } from "@/types";
+import type { ScoreTier, ScoreBreakdown, KiteScore } from "@/types";
 
 // ---------------------------------------------------------------------------
 // Tier classification
@@ -19,13 +22,10 @@ export function getTier(score: number): ScoreTier {
 }
 
 // ---------------------------------------------------------------------------
-// The Lift Equation
+// The Lift Equation v2
 // ---------------------------------------------------------------------------
-// The sub-scores are already weighted to their correct ranges:
-//   On-chain:  0-400 (40%)
-//   GitHub:    0-300 (30%)
-//   Financial: 0-300 (30%)
-// Total range: 0-1000
+// Core scoring: on-chain (0-500) + financial (0-500) = 0-1000
+// GitHub bonus: capped at +100, can push above core but never above 1000
 // ---------------------------------------------------------------------------
 
 export function calculateKiteScore(breakdown: ScoreBreakdown): {
@@ -33,10 +33,16 @@ export function calculateKiteScore(breakdown: ScoreBreakdown): {
     tier: ScoreTier;
 } {
     const onChain = breakdown.onChain?.score ?? 0;
-    const github = breakdown.github?.score ?? 0;
     const financial = breakdown.financial?.score ?? 0;
 
-    const total = Math.min(1000, onChain + github + financial);
+    // Core score: on-chain + financial
+    const coreScore = onChain + financial;
+
+    // GitHub bonus: scale down from 0-300 to 0-100
+    const githubRaw = breakdown.github?.score ?? 0;
+    const githubBonus = Math.floor((githubRaw / 300) * 100);
+
+    const total = Math.min(1000, coreScore + githubBonus);
     const tier = getTier(total);
 
     return { total, tier };
@@ -44,10 +50,6 @@ export function calculateKiteScore(breakdown: ScoreBreakdown): {
 
 // ---------------------------------------------------------------------------
 // Partial scoring support
-// ---------------------------------------------------------------------------
-// Users may not have all three data sources connected. We still produce
-// a score from whatever is available, but we indicate which sources are
-// missing so the dashboard can prompt the user to connect them.
 // ---------------------------------------------------------------------------
 
 export function getConnectedSources(breakdown: ScoreBreakdown): string[] {
@@ -60,10 +62,10 @@ export function getConnectedSources(breakdown: ScoreBreakdown): string[] {
 
 export function getMaxPossibleScore(breakdown: ScoreBreakdown): number {
     let max = 0;
-    if (breakdown.onChain) max += 400; else max += 0;
-    if (breakdown.github) max += 300; else max += 0;
-    if (breakdown.financial) max += 300; else max += 0;
-    return max || 1000; // If nothing connected, show out of 1000
+    if (breakdown.onChain) max += 500;
+    if (breakdown.financial) max += 500;
+    // GitHub bonus is non-essential, don't count it in max
+    return max || 1000;
 }
 
 // ---------------------------------------------------------------------------

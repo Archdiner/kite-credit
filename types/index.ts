@@ -22,12 +22,12 @@ export interface OnChainData {
 }
 
 export interface OnChainScore {
-  score: number; // 0-400
+  score: number; // 0-500
   breakdown: {
-    walletAge: number;       // 0-100
-    deFiActivity: number;    // 0-150
-    repaymentHistory: number; // 0-100
-    staking: number;         // 0-50
+    walletAge: number;       // 0-125
+    deFiActivity: number;    // 0-190
+    repaymentHistory: number; // 0-125
+    staking: number;         // 0-60
   };
 }
 
@@ -69,11 +69,11 @@ export interface FinancialData {
 }
 
 export interface FinancialScore {
-  score: number; // 0-300
+  score: number; // 0-500
   breakdown: {
-    balanceHealth: number;       // 0-150
-    incomeConsistency: number;   // 0-100
-    verificationBonus: number;   // 0-50
+    balanceHealth: number;       // 0-250
+    incomeConsistency: number;   // 0-165
+    verificationBonus: number;   // 0-85
   };
 }
 

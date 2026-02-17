@@ -1,120 +1,145 @@
 "use client";
 
 import { motion } from "framer-motion";
-import type { KiteScore } from "@/types";
+import type { KiteScore, ScoreTier } from "@/types";
 
-interface Props {
-    score: KiteScore;
-}
-
-const tierColors: Record<string, string> = {
-    Building: "from-amber-500 to-orange-600",
-    Steady: "from-sky-400 to-blue-600",
-    Strong: "from-emerald-400 to-teal-600",
-    Elite: "from-violet-400 to-purple-600",
+const TIER_CONFIG: Record<ScoreTier, { gradient: string; glow: string; label: string }> = {
+    Building: {
+        gradient: "from-amber-400 to-orange-500",
+        glow: "rgba(251,146,60,0.4)",
+        label: "Building",
+    },
+    Steady: {
+        gradient: "from-orange-400 to-sky-500",
+        glow: "rgba(56,189,248,0.3)",
+        label: "Steady",
+    },
+    Strong: {
+        gradient: "from-sky-400 to-blue-500",
+        glow: "rgba(59,130,246,0.4)",
+        label: "Strong",
+    },
+    Elite: {
+        gradient: "from-sky-300 via-indigo-400 to-violet-500",
+        glow: "rgba(139,92,246,0.4)",
+        label: "Elite",
+    },
 };
 
-const tierGlowColors: Record<string, string> = {
-    Building: "shadow-amber-500/20",
-    Steady: "shadow-sky-500/20",
-    Strong: "shadow-emerald-500/20",
-    Elite: "shadow-violet-500/20",
-};
+export default function ScoreDisplay({ score }: { score: KiteScore }) {
+    const config = TIER_CONFIG[score.tier];
+    const percentage = (score.total / 1000) * 100;
 
-export default function ScoreDisplay({ score }: Props) {
-    const gradientClass = tierColors[score.tier] || tierColors.Building;
-    const glowClass = tierGlowColors[score.tier] || tierGlowColors.Building;
+    // SVG ring parameters
+    const size = 280;
+    const strokeWidth = 12;
+    const radius = (size - strokeWidth) / 2;
+    const circumference = 2 * Math.PI * radius;
+    const offset = circumference - (percentage / 100) * circumference;
 
     return (
-        <div className="flex flex-col items-center">
-            {/* Score ring */}
-            <motion.div
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ type: "spring", damping: 20, stiffness: 100 }}
-                className={`relative w-48 h-48 rounded-full flex items-center justify-center shadow-2xl ${glowClass}`}
-            >
-                {/* Outer ring */}
-                <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 120 120">
+        <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.8 }}
+            className="flex flex-col md:flex-row items-center gap-10 md:gap-16"
+        >
+            {/* Score Ring */}
+            <div className="relative">
+                {/* Glow behind ring */}
+                <div
+                    className="absolute inset-0 rounded-full blur-3xl opacity-40"
+                    style={{ background: `radial-gradient(circle, ${config.glow}, transparent 70%)` }}
+                />
+
+                <svg width={size} height={size} className="relative z-10 -rotate-90">
+                    {/* Background ring */}
                     <circle
-                        cx="60"
-                        cy="60"
-                        r="54"
+                        cx={size / 2}
+                        cy={size / 2}
+                        r={radius}
                         fill="none"
-                        stroke="rgba(255,255,255,0.05)"
-                        strokeWidth="6"
+                        stroke="rgba(255,255,255,0.06)"
+                        strokeWidth={strokeWidth}
                     />
+                    {/* Progress ring */}
                     <motion.circle
-                        cx="60"
-                        cy="60"
-                        r="54"
+                        cx={size / 2}
+                        cy={size / 2}
+                        r={radius}
                         fill="none"
-                        stroke="url(#scoreGradient)"
-                        strokeWidth="6"
+                        strokeWidth={strokeWidth}
                         strokeLinecap="round"
-                        strokeDasharray={`${(score.total / 1000) * 339.29} 339.29`}
-                        initial={{ strokeDashoffset: 339.29 }}
-                        animate={{ strokeDashoffset: 0 }}
-                        transition={{ duration: 1.5, ease: "easeOut" }}
+                        strokeDasharray={circumference}
+                        initial={{ strokeDashoffset: circumference }}
+                        animate={{ strokeDashoffset: offset }}
+                        transition={{ duration: 2, ease: "easeOut", delay: 0.3 }}
+                        className={`stroke-current`}
+                        style={{
+                            filter: `drop-shadow(0 0 8px ${config.glow})`,
+                        }}
+                        stroke="url(#scoreGradient)"
                     />
                     <defs>
                         <linearGradient id="scoreGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" stopColor="#38bdf8" />
-                            <stop offset="100%" stopColor="#6366f1" />
+                            <stop offset="0%" stopColor="#f97316" />
+                            <stop offset="50%" stopColor="#38bdf8" />
+                            <stop offset="100%" stopColor="#8b5cf6" />
                         </linearGradient>
                     </defs>
                 </svg>
 
-                {/* Inner content */}
-                <div className="text-center">
-                    <motion.div
+                {/* Center content */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center z-20">
+                    <motion.span
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        transition={{ delay: 0.5 }}
+                        transition={{ delay: 1 }}
+                        className="text-6xl font-black text-white tracking-tight"
                     >
-                        <span className="text-5xl font-bold text-white font-outfit tabular-nums">
-                            {score.total}
-                        </span>
-                        <span className="text-lg text-slate-500 font-light">/1000</span>
-                    </motion.div>
+                        {score.total}
+                    </motion.span>
+                    <span className="text-xs text-white/40 font-mono tracking-widest mt-1">/ 1000</span>
                 </div>
-            </motion.div>
+            </div>
 
-            {/* Tier badge */}
-            <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.7 }}
-                className="mt-4"
-            >
-                <span
-                    className={`inline-flex items-center px-4 py-1.5 rounded-full text-sm font-semibold text-white bg-gradient-to-r ${gradientClass}`}
-                >
-                    {score.tier}
-                </span>
-            </motion.div>
-
-            {/* AI Explanation */}
-            {score.explanation && (
+            {/* Score Info */}
+            <div className="text-center md:text-left">
                 <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 1 }}
-                    className="mt-6 max-w-lg"
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.5 }}
                 >
-                    <div className="bg-slate-800/50 border border-white/5 rounded-xl p-5">
-                        <div className="flex items-center gap-2 mb-2">
-                            <div className="w-4 h-4 rounded bg-gradient-to-br from-sky-400 to-blue-500 flex items-center justify-center">
-                                <span className="text-[8px] text-white font-bold">AI</span>
-                            </div>
-                            <span className="text-xs text-slate-400 font-medium">Score Analysis</span>
-                        </div>
-                        <p className="text-sm text-slate-300 leading-relaxed font-inter">
-                            {score.explanation}
-                        </p>
+                    <p className="text-xs text-white/40 font-mono tracking-[0.3em] uppercase mb-2">
+                        Credit Tier
+                    </p>
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className={`w-4 h-4 rotate-45 bg-gradient-to-br ${config.gradient}`} />
+                        <h2 className="text-4xl md:text-5xl font-black text-white tracking-tight uppercase">
+                            {config.label}
+                        </h2>
+                    </div>
+
+                    {/* Data sources badge */}
+                    <div className="flex flex-wrap gap-2">
+                        {score.breakdown.onChain && (
+                            <span className="px-3 py-1 bg-sky-500/10 border border-sky-400/20 rounded-full text-xs text-sky-300 font-mono tracking-wider">
+                                On-Chain ✓
+                            </span>
+                        )}
+                        {score.breakdown.financial && (
+                            <span className="px-3 py-1 bg-orange-500/10 border border-orange-400/20 rounded-full text-xs text-orange-300 font-mono tracking-wider">
+                                Financial ✓
+                            </span>
+                        )}
+                        {score.breakdown.github && (
+                            <span className="px-3 py-1 bg-indigo-500/10 border border-indigo-400/20 rounded-full text-xs text-indigo-300/60 font-mono tracking-wider">
+                                GitHub Bonus ✓
+                            </span>
+                        )}
                     </div>
                 </motion.div>
-            )}
-        </div>
+            </div>
+        </motion.div>
     );
 }

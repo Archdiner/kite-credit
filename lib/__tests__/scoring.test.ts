@@ -1,13 +1,13 @@
 // ---------------------------------------------------------------------------
-// Scoring engine tests
+// Scoring engine tests (v2 -- 50/50 on-chain + financial)
 // ---------------------------------------------------------------------------
 
 import { calculateKiteScore, getTier, getConnectedSources } from "../scoring";
 import type { ScoreBreakdown, OnChainScore, GitHubScore, FinancialScore } from "@/types";
 
 const onChainScore: OnChainScore = {
-    score: 250,
-    breakdown: { walletAge: 80, deFiActivity: 100, repaymentHistory: 50, staking: 20 },
+    score: 300,
+    breakdown: { walletAge: 100, deFiActivity: 120, repaymentHistory: 60, staking: 20 },
 };
 
 const githubScore: GitHubScore = {
@@ -16,18 +16,28 @@ const githubScore: GitHubScore = {
 };
 
 const financialScore: FinancialScore = {
-    score: 200,
-    breakdown: { balanceHealth: 100, incomeConsistency: 70, verificationBonus: 30 },
+    score: 350,
+    breakdown: { balanceHealth: 150, incomeConsistency: 130, verificationBonus: 70 },
 };
 
 describe("calculateKiteScore", () => {
-    it("sums sub-scores correctly", () => {
+    it("sums core scores (on-chain + financial only)", () => {
         const result = calculateKiteScore({
+            onChain: onChainScore,
+            github: null,
+            financial: financialScore,
+        });
+        expect(result.total).toBe(650); // 300 + 350
+    });
+
+    it("adds GitHub as bonus scaled from 0-300 to 0-100", () => {
+        const withGithub = calculateKiteScore({
             onChain: onChainScore,
             github: githubScore,
             financial: financialScore,
         });
-        expect(result.total).toBe(630);
+        // Core: 300 + 350 = 650. GitHub bonus: floor(180/300 * 100) = 60
+        expect(withGithub.total).toBe(710);
     });
 
     it("handles null sub-scores", () => {
@@ -36,21 +46,21 @@ describe("calculateKiteScore", () => {
             github: null,
             financial: null,
         });
-        expect(result.total).toBe(250);
+        expect(result.total).toBe(300);
     });
 
     it("caps at 1000", () => {
         const maxOnChain: OnChainScore = {
-            score: 400,
-            breakdown: { walletAge: 100, deFiActivity: 150, repaymentHistory: 100, staking: 50 },
+            score: 500,
+            breakdown: { walletAge: 125, deFiActivity: 190, repaymentHistory: 125, staking: 60 },
+        };
+        const maxFinancial: FinancialScore = {
+            score: 500,
+            breakdown: { balanceHealth: 250, incomeConsistency: 165, verificationBonus: 85 },
         };
         const maxGithub: GitHubScore = {
             score: 300,
             breakdown: { accountAge: 50, repoPortfolio: 75, commitConsistency: 100, communityTrust: 75 },
-        };
-        const maxFinancial: FinancialScore = {
-            score: 300,
-            breakdown: { balanceHealth: 150, incomeConsistency: 100, verificationBonus: 50 },
         };
         const result = calculateKiteScore({
             onChain: maxOnChain,

@@ -1,245 +1,421 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import ConnectWallet from "@/components/ConnectWallet";
-import ConnectGitHub from "@/components/ConnectGitHub";
+import Image from "next/image";
+import { useWallet } from "@solana/wallet-adapter-react";
 import ScoreDisplay from "@/components/dashboard/ScoreDisplay";
 import ScoreBreakdownPanel from "@/components/dashboard/ScoreBreakdownPanel";
 import AttestationCard from "@/components/dashboard/AttestationCard";
 import type { KiteScore, ZKAttestation } from "@/types";
 
-type DashboardState = "connecting" | "scoring" | "complete" | "error";
+type FlowState = "connect" | "loading" | "results";
 
 export default function DashboardPage() {
-    const { publicKey, connected } = useWallet();
-    const [state, setState] = useState<DashboardState>("connecting");
-    const [score, setScore] = useState<KiteScore | null>(null);
+    const { publicKey, connected, signMessage } = useWallet();
+    const [flowState, setFlowState] = useState<FlowState>("connect");
+    const [kiteScore, setKiteScore] = useState<KiteScore | null>(null);
     const [attestation, setAttestation] = useState<ZKAttestation | null>(null);
-    const [error, setError] = useState<string | null>(null);
     const [githubUser, setGithubUser] = useState<string | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
+    const [bankVerified, setBankVerified] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-    // Check for GitHub connection on mount
-    useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
-        if (params.get("github") === "connected") {
-            // Fetch GitHub username
-            fetch("/api/github/analyze")
-                .then((res) => res.json())
-                .then((json) => {
-                    if (json.success && json.data?.data?.username) {
-                        setGithubUser(json.data.data.username);
-                    }
-                })
-                .catch(() => { });
-
-            // Clean URL
-            window.history.replaceState({}, "", "/dashboard");
-        }
-    }, []);
-
-    const calculateScore = useCallback(async () => {
-        setIsLoading(true);
-        setState("scoring");
+    const handleCalculateScore = useCallback(async () => {
+        if (!publicKey) return;
         setError(null);
+        setFlowState("loading");
 
         try {
+            // Step 1: Wallet signature verification
+            let signature = "";
+            if (signMessage) {
+                const nonce = crypto.randomUUID();
+                const message = `Kite Credit: verify ownership of ${publicKey.toBase58()} | nonce: ${nonce}`;
+                const messageBytes = new TextEncoder().encode(message);
+                const signatureBytes = await signMessage(messageBytes);
+                signature = Buffer.from(signatureBytes).toString("base64");
+            }
+
+            // Step 2: Fetch composite score
             const res = await fetch("/api/score", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    walletAddress: publicKey?.toBase58() || null,
-                    includeFinancial: true,
+                    walletAddress: publicKey.toBase58(),
+                    walletSignature: signature,
+                    includeGithub: !!githubUser,
+                    includeBankVerification: bankVerified,
                 }),
             });
 
-            const json = await res.json();
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || "Score calculation failed");
 
-            if (!json.success) {
-                throw new Error(json.error || "Failed to calculate score");
-            }
-
-            setScore(json.data.score);
-            setAttestation(json.data.attestation);
-            setState("complete");
+            setKiteScore(data.data.score);
+            setAttestation(data.data.attestation);
+            setFlowState("results");
         } catch (err) {
             setError(err instanceof Error ? err.message : "Something went wrong");
-            setState("error");
-        } finally {
-            setIsLoading(false);
+            setFlowState("connect");
         }
-    }, [publicKey]);
+    }, [publicKey, signMessage, githubUser, bankVerified]);
 
-    const hasAnySources = connected || githubUser;
+    const handleConnectGitHub = () => {
+        window.location.href = "/api/auth/github";
+    };
+
+    const handleVerifyBank = async () => {
+        try {
+            const res = await fetch("/api/reclaim/verify", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ provider: "chase" }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                setBankVerified(true);
+            }
+        } catch {
+            // Mock verification fallback for prototype
+            setBankVerified(true);
+        }
+    };
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
-            {/* Background glow  */}
-            <div className="fixed inset-0 pointer-events-none">
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-sky-500/5 rounded-full blur-3xl" />
-                <div className="absolute bottom-0 left-1/4 w-[600px] h-[400px] bg-blue-500/5 rounded-full blur-3xl" />
+        <div className="relative min-h-screen overflow-hidden font-sans">
+            {/* City Background */}
+            <div className="fixed inset-0 z-0">
+                <Image
+                    src="/city_background.png"
+                    alt=""
+                    fill
+                    className="object-cover object-center"
+                    priority
+                    quality={90}
+                />
+                {/* Warm gradient overlay */}
+                <div className="absolute inset-0 bg-gradient-to-b from-slate-900/40 via-slate-900/60 to-slate-900/90" />
             </div>
 
-            <div className="relative z-10 max-w-4xl mx-auto px-4 py-12">
+            {/* Content */}
+            <div className="relative z-10">
                 {/* Header */}
-                <motion.header
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="text-center mb-12"
-                >
-                    <h1 className="font-outfit text-3xl font-bold text-white tracking-tight">
-                        kite
-                        <span className="text-sky-400">credit</span>
-                    </h1>
-                    <p className="mt-2 text-sm text-slate-400 font-inter">
-                        Your portable, privacy-first credit identity
-                    </p>
-                </motion.header>
-
-                {/* Score Display (when calculated) */}
-                <AnimatePresence>
-                    {score && state === "complete" && (
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="mb-10"
+                <header className="px-6 md:px-12 pt-8 pb-4">
+                    <div className="max-w-6xl mx-auto flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-5 h-5 bg-sky-400 rotate-45 shadow-[0_0_15px_rgba(56,189,248,0.6)]" />
+                            <h1 className="text-xl font-bold text-white tracking-wider uppercase">
+                                Kite Credit
+                            </h1>
+                        </div>
+                        <a
+                            href="/"
+                            className="text-sm text-white/60 hover:text-white transition-colors tracking-widest uppercase"
                         >
-                            <ScoreDisplay score={score} />
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-
-                {/* Source connections */}
-                <motion.section
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 }}
-                    className="bg-slate-900/80 backdrop-blur border border-white/5 rounded-2xl p-8 mb-6"
-                >
-                    <h2 className="text-lg font-semibold text-white font-outfit mb-6">
-                        Connect your sources
-                    </h2>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {/* Solana */}
-                        <div className="bg-slate-800/50 border border-white/5 rounded-xl p-5">
-                            <div className="flex items-center gap-2 mb-3">
-                                <div className={`w-2 h-2 rounded-full ${connected ? "bg-emerald-400 animate-pulse" : "bg-slate-600"}`} />
-                                <span className="text-sm font-medium text-slate-300">
-                                    Solana Wallet
-                                </span>
-                                <span className="ml-auto text-xs text-slate-500">40%</span>
-                            </div>
-                            <ConnectWallet compact />
-                        </div>
-
-                        {/* GitHub */}
-                        <div className="bg-slate-800/50 border border-white/5 rounded-xl p-5">
-                            <div className="flex items-center gap-2 mb-3">
-                                <div className={`w-2 h-2 rounded-full ${githubUser ? "bg-emerald-400 animate-pulse" : "bg-slate-600"}`} />
-                                <span className="text-sm font-medium text-slate-300">
-                                    GitHub Profile
-                                </span>
-                                <span className="ml-auto text-xs text-slate-500">30%</span>
-                            </div>
-                            <ConnectGitHub username={githubUser} compact />
-                        </div>
-
-                        {/* Financial */}
-                        <div className="bg-slate-800/50 border border-white/5 rounded-xl p-5">
-                            <div className="flex items-center gap-2 mb-3">
-                                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                                <span className="text-sm font-medium text-slate-300">
-                                    Bank Verification
-                                </span>
-                                <span className="ml-auto text-xs text-slate-500">30%</span>
-                            </div>
-                            <div className="flex items-center gap-2 bg-slate-800/80 border border-emerald-500/30 px-3 py-2 rounded-lg">
-                                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                                <span className="text-xs text-emerald-300 font-mono">ZK mock proof</span>
-                            </div>
-                        </div>
+                            ← Home
+                        </a>
                     </div>
+                </header>
 
-                    {/* Calculate button */}
-                    <div className="mt-8 flex justify-center">
-                        <button
-                            onClick={calculateScore}
-                            disabled={!hasAnySources || isLoading}
-                            className="relative group px-8 py-3 rounded-xl font-semibold text-sm tracking-wide transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                            <div className="absolute -inset-0.5 bg-gradient-to-r from-sky-500 to-blue-600 rounded-xl opacity-60 group-hover:opacity-100 blur-[2px] transition-opacity" />
-                            <div className="relative bg-slate-900 px-8 py-3 rounded-xl text-white">
-                                {isLoading ? (
-                                    <span className="flex items-center gap-2">
-                                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                                            <circle
-                                                className="opacity-25"
-                                                cx="12"
-                                                cy="12"
-                                                r="10"
-                                                stroke="currentColor"
-                                                strokeWidth="4"
-                                                fill="none"
-                                            />
-                                            <path
-                                                className="opacity-75"
-                                                fill="currentColor"
-                                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                                            />
-                                        </svg>
-                                        Analyzing...
-                                    </span>
-                                ) : (
-                                    "Calculate Kite Score"
-                                )}
-                            </div>
-                        </button>
-                    </div>
-                </motion.section>
-
-                {/* Error */}
-                <AnimatePresence>
-                    {error && (
-                        <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: "auto" }}
-                            exit={{ opacity: 0, height: 0 }}
-                            className="bg-red-950/50 border border-red-500/20 rounded-xl p-4 mb-6"
-                        >
-                            <p className="text-sm text-red-300">{error}</p>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-
-                {/* Score Breakdown & Attestation (after score calculated) */}
-                <AnimatePresence>
-                    {score && state === "complete" && (
-                        <>
+                {/* Main Content */}
+                <main className="max-w-6xl mx-auto px-6 md:px-12 py-8">
+                    <AnimatePresence mode="wait">
+                        {flowState === "connect" && (
                             <motion.div
-                                initial={{ opacity: 0, y: 20 }}
+                                key="connect"
+                                initial={{ opacity: 0, y: 30 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.2 }}
-                                className="mb-6"
+                                exit={{ opacity: 0, y: -30 }}
+                                transition={{ duration: 0.6 }}
                             >
-                                <ScoreBreakdownPanel score={score} />
-                            </motion.div>
+                                {/* Hero Section */}
+                                <div className="text-center mb-16">
+                                    <motion.p
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        transition={{ delay: 0.2 }}
+                                        className="text-xs md:text-sm text-sky-300 font-mono tracking-[0.3em] uppercase mb-4"
+                                    >
+                                        Decentralized Credit Protocol
+                                    </motion.p>
+                                    <motion.h2
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: 0.3, duration: 0.6 }}
+                                        className="text-4xl md:text-7xl font-black text-white tracking-tighter mb-6 drop-shadow-2xl"
+                                    >
+                                        YOUR KITE SCORE
+                                    </motion.h2>
+                                    <div className="h-1 w-24 bg-gradient-to-r from-orange-500 to-sky-400 mx-auto rounded-full shadow-[0_0_20px_rgba(249,115,22,0.4)]" />
+                                </div>
 
-                            {attestation && (
+                                {/* Source Connection Cards */}
+                                <div className="grid md:grid-cols-3 gap-6 md:gap-8 mb-12">
+                                    {/* Solana Wallet Card */}
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 30 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: 0.4 }}
+                                        className="relative group"
+                                    >
+                                        <div className="absolute inset-0 bg-gradient-to-br from-sky-500/20 to-blue-600/20 rounded-xl blur-xl group-hover:blur-2xl transition-all opacity-60" />
+                                        <div className="relative bg-slate-900/80 backdrop-blur-lg rounded-xl p-6 border border-sky-500/20 hover:border-sky-400/40 transition-all shadow-2xl">
+                                            <div className="flex items-center gap-3 mb-4">
+                                                <div className="w-3 h-3 bg-sky-400 rotate-45" />
+                                                <h3 className="text-lg font-bold text-white tracking-wide uppercase">
+                                                    On-Chain
+                                                </h3>
+                                                <span className="ml-auto text-xs text-sky-400 font-mono">50%</span>
+                                            </div>
+                                            <p className="text-sm text-white/60 mb-6 leading-relaxed">
+                                                Wallet age, DeFi history, staking activity, and transaction patterns.
+                                            </p>
+                                            {connected ? (
+                                                <div className="flex items-center gap-2 bg-sky-500/10 border border-sky-400/30 rounded-lg px-4 py-3">
+                                                    <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                                                    <span className="text-sm text-sky-200 font-mono truncate">
+                                                        {publicKey?.toBase58().slice(0, 8)}...{publicKey?.toBase58().slice(-6)}
+                                                    </span>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    className="w-full py-3 bg-gradient-to-r from-sky-500 to-blue-600 text-white font-bold tracking-wider uppercase text-sm rounded-lg hover:from-sky-400 hover:to-blue-500 transition-all shadow-lg"
+                                                    onClick={() => {
+                                                        // Trigger wallet modal
+                                                        document.querySelector<HTMLButtonElement>(".wallet-adapter-button")?.click();
+                                                    }}
+                                                >
+                                                    Connect Wallet
+                                                </button>
+                                            )}
+                                        </div>
+                                    </motion.div>
+
+                                    {/* Financial Verification Card */}
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 30 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: 0.5 }}
+                                        className="relative group"
+                                    >
+                                        <div className="absolute inset-0 bg-gradient-to-br from-orange-500/20 to-amber-600/20 rounded-xl blur-xl group-hover:blur-2xl transition-all opacity-60" />
+                                        <div className="relative bg-slate-900/80 backdrop-blur-lg rounded-xl p-6 border border-orange-500/20 hover:border-orange-400/40 transition-all shadow-2xl">
+                                            <div className="flex items-center gap-3 mb-4">
+                                                <div className="w-3 h-3 bg-orange-400 rotate-45" />
+                                                <h3 className="text-lg font-bold text-white tracking-wide uppercase">
+                                                    Financial
+                                                </h3>
+                                                <span className="ml-auto text-xs text-orange-400 font-mono">50%</span>
+                                            </div>
+                                            <p className="text-sm text-white/60 mb-6 leading-relaxed">
+                                                ZK-verified bank balance, income consistency, and cash flow health.
+                                            </p>
+                                            {bankVerified ? (
+                                                <div className="flex items-center gap-2 bg-orange-500/10 border border-orange-400/30 rounded-lg px-4 py-3">
+                                                    <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                                                    <span className="text-sm text-orange-200 font-mono">Bank Verified (ZK)</span>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    onClick={handleVerifyBank}
+                                                    className="w-full py-3 bg-gradient-to-r from-orange-500 to-amber-600 text-white font-bold tracking-wider uppercase text-sm rounded-lg hover:from-orange-400 hover:to-amber-500 transition-all shadow-lg"
+                                                >
+                                                    Verify Bank Account
+                                                </button>
+                                            )}
+                                        </div>
+                                    </motion.div>
+
+                                    {/* GitHub Bonus Card */}
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 30 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: 0.6 }}
+                                        className="relative group"
+                                    >
+                                        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-violet-600/10 rounded-xl blur-xl group-hover:blur-2xl transition-all opacity-40" />
+                                        <div className="relative bg-slate-900/60 backdrop-blur-lg rounded-xl p-6 border border-white/10 hover:border-indigo-400/30 transition-all shadow-2xl">
+                                            <div className="flex items-center gap-3 mb-4">
+                                                <div className="w-3 h-3 bg-indigo-400 rotate-45 opacity-60" />
+                                                <h3 className="text-lg font-bold text-white/70 tracking-wide uppercase">
+                                                    GitHub
+                                                </h3>
+                                                <span className="ml-auto text-[10px] text-indigo-300/60 font-mono border border-indigo-400/20 px-2 py-0.5 rounded-full">
+                                                    BONUS
+                                                </span>
+                                            </div>
+                                            <p className="text-sm text-white/40 mb-6 leading-relaxed">
+                                                Optional professional reputation boost. Up to +100 bonus points.
+                                            </p>
+                                            {githubUser ? (
+                                                <div className="flex items-center gap-2 bg-indigo-500/10 border border-indigo-400/20 rounded-lg px-4 py-3">
+                                                    <div className="w-2 h-2 rounded-full bg-indigo-400" />
+                                                    <span className="text-sm text-indigo-200/70 font-mono">@{githubUser}</span>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    onClick={handleConnectGitHub}
+                                                    className="w-full py-3 bg-white/5 border border-white/10 text-white/60 font-bold tracking-wider uppercase text-sm rounded-lg hover:bg-white/10 hover:border-indigo-400/30 transition-all"
+                                                >
+                                                    Connect GitHub
+                                                </button>
+                                            )}
+                                        </div>
+                                    </motion.div>
+                                </div>
+
+                                {/* Calculate Button */}
+                                {connected && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: 0.8 }}
+                                        className="text-center"
+                                    >
+                                        <button
+                                            onClick={handleCalculateScore}
+                                            className="relative group px-12 py-5 text-white font-bold tracking-[0.2em] uppercase overflow-hidden rounded-sm"
+                                        >
+                                            {/* Button gradient background */}
+                                            <div className="absolute inset-0 bg-gradient-to-r from-orange-500 via-sky-500 to-indigo-500 transition-opacity group-hover:opacity-90" />
+                                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-r from-orange-400 via-sky-400 to-indigo-400" />
+                                            {/* Glow */}
+                                            <div className="absolute inset-0 blur-xl bg-gradient-to-r from-orange-500/40 via-sky-500/40 to-indigo-500/40 group-hover:blur-2xl transition-all" />
+                                            <span className="relative z-10 text-sm md:text-base">Calculate Kite Score</span>
+                                        </button>
+
+                                        <p className="mt-6 text-xs text-white/30 font-mono tracking-wider">
+                                            Your wallet will sign a verification message to prove ownership
+                                        </p>
+                                    </motion.div>
+                                )}
+
+                                {/* Error message */}
+                                {error && (
+                                    <motion.div
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        className="mt-6 max-w-md mx-auto bg-red-500/10 border border-red-500/30 rounded-lg p-4 text-center"
+                                    >
+                                        <p className="text-sm text-red-300">{error}</p>
+                                    </motion.div>
+                                )}
+                            </motion.div>
+                        )}
+
+                        {flowState === "loading" && (
+                            <motion.div
+                                key="loading"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="flex flex-col items-center justify-center min-h-[60vh]"
+                            >
+                                <motion.div
+                                    className="w-20 h-20 bg-gradient-to-br from-orange-500 to-sky-500 rotate-45 mb-12"
+                                    animate={{
+                                        rotate: [45, 135, 225, 315, 405],
+                                        scale: [1, 1.1, 1, 0.9, 1],
+                                    }}
+                                    transition={{
+                                        duration: 3,
+                                        repeat: Infinity,
+                                        ease: "easeInOut",
+                                    }}
+                                />
+                                <p className="text-lg text-white font-light tracking-widest uppercase">
+                                    Calculating your score...
+                                </p>
+                                <div className="flex gap-2 mt-6">
+                                    {["On-Chain", "Financial", "AI Analysis"].map((step, i) => (
+                                        <motion.span
+                                            key={step}
+                                            initial={{ opacity: 0.3 }}
+                                            animate={{ opacity: [0.3, 1, 0.3] }}
+                                            transition={{
+                                                duration: 1.5,
+                                                delay: i * 0.4,
+                                                repeat: Infinity,
+                                            }}
+                                            className="text-xs text-sky-300/60 font-mono tracking-wider"
+                                        >
+                                            {step}
+                                        </motion.span>
+                                    ))}
+                                </div>
+                            </motion.div>
+                        )}
+
+                        {flowState === "results" && kiteScore && (
+                            <motion.div
+                                key="results"
+                                initial={{ opacity: 0, y: 30 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.8 }}
+                                className="space-y-10"
+                            >
+                                {/* Score Display */}
+                                <ScoreDisplay score={kiteScore} />
+
+                                {/* Breakdown Panel */}
+                                <ScoreBreakdownPanel breakdown={kiteScore.breakdown} />
+
+                                {/* AI Explanation */}
                                 <motion.div
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: 0.3 }}
+                                    transition={{ delay: 0.6 }}
+                                    className="relative"
                                 >
-                                    <AttestationCard attestation={attestation} />
+                                    <div className="absolute inset-0 bg-gradient-to-r from-orange-500/5 to-sky-500/5 rounded-xl blur-xl" />
+                                    <div className="relative bg-slate-900/70 backdrop-blur-lg rounded-xl p-8 border border-white/10">
+                                        <div className="flex items-center gap-3 mb-4">
+                                            <div className="w-2 h-2 bg-emerald-400 rotate-45" />
+                                            <h3 className="text-sm font-bold text-white/60 tracking-[0.2em] uppercase">
+                                                AI Analysis
+                                            </h3>
+                                        </div>
+                                        <p className="text-white/80 leading-relaxed font-light text-lg">
+                                            {kiteScore.explanation}
+                                        </p>
+                                    </div>
                                 </motion.div>
-                            )}
-                        </>
-                    )}
-                </AnimatePresence>
+
+                                {/* Attestation Card */}
+                                {attestation && <AttestationCard attestation={attestation} />}
+
+                                {/* Recalculate */}
+                                <motion.div
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    transition={{ delay: 1 }}
+                                    className="text-center pt-4 pb-12"
+                                >
+                                    <button
+                                        onClick={() => setFlowState("connect")}
+                                        className="px-8 py-3 bg-white text-slate-900 font-bold tracking-[0.2em] uppercase text-sm rounded-sm hover:bg-sky-50 transition-colors shadow-[0_0_20px_rgba(255,255,255,0.2)]"
+                                    >
+                                        Recalculate Score
+                                    </button>
+                                </motion.div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </main>
+
+                {/* ZK Shield indicator */}
+                <div className="fixed bottom-6 left-6 z-50">
+                    <div className="flex items-center gap-3 bg-slate-900/80 backdrop-blur-md px-4 py-2 rounded-full border border-emerald-500/20 shadow-lg">
+                        <div className="relative w-2 h-2">
+                            <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                        </div>
+                        <span className="text-[10px] font-bold tracking-widest text-emerald-300/80 uppercase">
+                            ZK-Proof Shield Active
+                        </span>
+                    </div>
+                </div>
             </div>
         </div>
     );

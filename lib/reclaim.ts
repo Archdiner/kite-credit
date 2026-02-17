@@ -139,32 +139,32 @@ function generateProofHash(proof: ReclaimProof): string {
 }
 
 // ---------------------------------------------------------------------------
-// Financial scoring (0-300)
+// Financial scoring (0-500)
 // ---------------------------------------------------------------------------
 
 export function scoreFinancial(data: FinancialData): FinancialScore {
-    // Balance health: 0-150
+    // Balance health: 0-250
     const balanceScores: Record<string, number> = {
-        "under-1k": 20,
-        "1k-5k": 50,
-        "5k-25k": 90,
-        "25k-100k": 130,
-        "100k+": 150,
+        "under-1k": 35,
+        "1k-5k": 85,
+        "5k-25k": 150,
+        "25k-100k": 215,
+        "100k+": 250,
     };
-    const balanceHealth = balanceScores[data.balanceBracket] ?? 20;
+    const balanceHealth = balanceScores[data.balanceBracket] ?? 35;
 
-    // Income consistency: 0-100
-    const incomeConsistency = data.incomeConsistency ? 100 : 30;
+    // Income consistency: 0-165
+    const incomeConsistency = data.incomeConsistency ? 165 : 50;
 
-    // Verification bonus: 0-50
+    // Verification bonus: 0-85
     // You get points just for verifying, more if it's a real proof
     const isRealProof = !data.proofHash.startsWith("mock_");
-    const verificationBonus = data.verified ? (isRealProof ? 50 : 35) : 0;
+    const verificationBonus = data.verified ? (isRealProof ? 85 : 60) : 0;
 
     const total = balanceHealth + incomeConsistency + verificationBonus;
 
     return {
-        score: Math.min(300, total),
+        score: Math.min(500, total),
         breakdown: {
             balanceHealth,
             incomeConsistency,
