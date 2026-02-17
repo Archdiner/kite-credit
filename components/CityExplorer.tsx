@@ -325,15 +325,15 @@ export default function CityExplorer() {
                                     exit={{ opacity: 0, y: -50 }}
                                     transition={{ duration: 0.8 }}
                                 >
-                                    <p className="text-sm md:text-lg text-sky-100 font-mono mb-6 tracking-[0.4em] uppercase drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] font-bold">
+                                    <p className="text-[10px] md:text-lg text-sky-100 font-mono mb-4 md:mb-6 tracking-[0.2em] md:tracking-[0.4em] uppercase drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] font-bold">
                                         Decentralized International Credit Protocol
                                     </p>
-                                    <h1 className="text-7xl md:text-9xl font-black text-white tracking-tighter drop-shadow-[0_4px_10px_rgba(0,0,0,0.5)] mb-4">
+                                    <h1 className="text-4xl md:text-9xl font-black text-white tracking-tighter drop-shadow-[0_4px_10px_rgba(0,0,0,0.5)] mb-4">
                                         KITE CREDIT
                                     </h1>
-                                    <div className="h-1 w-32 bg-sky-400 mx-auto rounded-full mt-4 mb-4 shadow-[0_0_15px_rgba(56,189,248,0.8)]" />
+                                    <div className="h-1 w-20 md:w-32 bg-sky-400 mx-auto rounded-full mt-2 md:mt-4 mb-2 md:mb-4 shadow-[0_0_15px_rgba(56,189,248,0.8)]" />
 
-                                    <p className="text-2xl md:text-3xl text-white font-light tracking-[0.2em] uppercase italic drop-shadow-md mt-4">
+                                    <p className="text-lg md:text-3xl text-white font-light tracking-[0.2em] uppercase italic drop-shadow-md whitespace-nowrap mt-2">
                                         Identity in Flight
                                     </p>
                                 </motion.div>
@@ -362,20 +362,19 @@ export default function CityExplorer() {
                                     </motion.button>
                                 ))}
 
-                                {/* Countdown Timer - Moved below Engine Node */}
+                                {/* Countdown Timer - Responsive Position */}
                                 <motion.div
-                                    className="absolute transform -translate-x-1/2 flex items-center justify-center pointer-events-none z-0"
-                                    style={{ left: '50%', top: '65%' }} // Positioned further below Engine node (was 56%)
+                                    className="absolute transform -translate-x-1/2 flex items-center justify-center pointer-events-none z-0 left-1/2 bottom-[15%] md:top-[63%] md:bottom-auto"
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, y: 20 }}
                                     transition={{ delay: 0.5 }}
                                 >
-                                    <div className="bg-black/60 backdrop-blur-md border border-white/10 px-6 py-2 rounded-full flex gap-3 shadow-2xl">
+                                    <div className="bg-black/60 backdrop-blur-md border border-white/10 px-4 py-2 md:px-6 md:py-2 rounded-full flex gap-3 shadow-2xl">
                                         {!isLaunched ? (
                                             <>
-                                                <span className="text-sky-300 font-mono text-sm tracking-widest uppercase self-center">Liftoff In:</span>
-                                                <div className="flex gap-2 font-mono text-xl text-white font-bold">
+                                                <span className="text-sky-300 font-mono text-xs md:text-sm tracking-widest uppercase self-center">Liftoff In:</span>
+                                                <div className="flex gap-2 font-mono text-lg md:text-xl text-white font-bold">
                                                     <span>{String(timeLeft.hours).padStart(2, '0')}h</span>
                                                     <span className="opacity-50">:</span>
                                                     <span>{String(timeLeft.minutes).padStart(2, '0')}m</span>
@@ -384,7 +383,7 @@ export default function CityExplorer() {
                                                 </div>
                                             </>
                                         ) : (
-                                            <span className="text-emerald-400 font-mono text-lg tracking-widest uppercase font-bold animate-pulse">
+                                            <span className="text-emerald-400 font-mono text-sm md:text-lg tracking-widest uppercase font-bold animate-pulse">
                                                 PROTOCOL LAUNCHED
                                             </span>
                                         )}
