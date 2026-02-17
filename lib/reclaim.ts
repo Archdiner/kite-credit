@@ -82,12 +82,45 @@ export async function initiateVerification(
 }
 
 // ---------------------------------------------------------------------------
+// Verify Reclaim proof (mock/structure check since SDK is missing)
+// ---------------------------------------------------------------------------
+
+export function verifyProof(proof: ReclaimProof): boolean {
+    if (!proof) return false;
+
+    // 1. Validate structure
+    if (!proof.claimData || !proof.signatures || !proof.extractedValues) {
+        return false;
+    }
+
+    // 2. Validate signatures (must have at least one)
+    if (!Array.isArray(proof.signatures) || proof.signatures.length === 0) {
+        return false;
+    }
+
+    // 3. Validate claimData schema
+    const { provider, parameters, context } = proof.claimData;
+    if (!provider || !parameters || !context) {
+        return false;
+    }
+
+    // Note: in a real production env with @reclaimprotocol/js-sdk, we would call:
+    // return Reclaim.verifySignedProof(proof);
+
+    return true;
+}
+
+// ---------------------------------------------------------------------------
 // Process Reclaim proof callback
 // ---------------------------------------------------------------------------
 
 export function processProof(proof: ReclaimProof): FinancialData {
     const extractedBalance = proof.extractedValues?.balance;
-    const balance = extractedBalance ? parseFloat(extractedBalance) : 0;
+    // Fix: Handle NaN result from parseFloat
+    let balance = extractedBalance ? parseFloat(extractedBalance) : 0;
+    if (isNaN(balance)) {
+        balance = 0;
+    }
 
     return {
         verified: true,
@@ -170,5 +203,6 @@ export function scoreFinancial(data: FinancialData): FinancialScore {
             incomeConsistency,
             verificationBonus,
         },
+        verified: data.verified,
     };
 }

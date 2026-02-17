@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
+import { Wallet, PieChart, Calendar, Activity, GitCommit } from "lucide-react";
 
 export default function HowItWorksPage() {
     return (
@@ -54,43 +55,43 @@ export default function HowItWorksPage() {
                     <section className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
                         <FactorCard
                             title="Payment History"
-                            percent="35%"
-                            color="from-emerald-500 to-teal-400"
-                            icon="History"
-                            desc="Consistency in repaying DeFi loans and regular bank bills. Your strongest predictor of future reliability."
-                            delay={0.2}
+                            icon={Wallet}
+                            score="35%"
+                            desc="On-chain loan repayments & consistency"
+                            color="text-emerald-400"
+                            delay={0.1}
                         />
                         <FactorCard
                             title="Utilization"
-                            percent="30%"
-                            color="from-teal-400 to-sky-400"
-                            icon="Balance"
-                            desc="Healthy collateral ratios and balanced account usage. Shows you don't over-leverage yourself."
-                            delay={0.3}
+                            icon={PieChart}
+                            score="30%"
+                            desc="Ratio of debt to collateral & assets"
+                            color="text-blue-400"
+                            delay={0.2}
                         />
                         <FactorCard
                             title="Credit Age"
-                            percent="15%"
-                            color="from-sky-400 to-indigo-400"
-                            icon="Time"
-                            desc="Longevity of your wallet and bank history. Older accounts demonstrate stability."
-                            delay={0.4}
+                            icon={Calendar}
+                            score="15%"
+                            desc="Age of oldest wallet & transaction history"
+                            color="text-purple-400"
+                            delay={0.3}
                         />
                         <FactorCard
                             title="Credit Mix"
-                            percent="10%"
-                            color="from-indigo-400 to-violet-400"
-                            icon="Layers"
-                            desc="Diversity of protocols and accounts used. Experience with different financial products matters."
-                            delay={0.5}
+                            icon={Activity}
+                            score="10%"
+                            desc="Variety of protocols & transaction types"
+                            color="text-orange-400"
+                            delay={0.4}
                         />
                         <FactorCard
                             title="New Credit"
-                            percent="10%"
-                            color="from-violet-400 to-purple-400"
-                            icon="Spark"
-                            desc="Frequency of new inquiries and account openings. Stability is preferred over rapid expansion."
-                            delay={0.6}
+                            icon={GitCommit}
+                            score="10%"
+                            desc="Recent inquiries & new protocol interactions"
+                            color="text-pink-400"
+                            delay={0.5}
                         />
                         <div className="bg-slate-900/50 backdrop-blur-sm rounded-2xl p-8 border border-white/5 flex flex-col justify-center items-center text-center">
                             <h3 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400 mb-2">
@@ -144,7 +145,16 @@ export default function HowItWorksPage() {
     );
 }
 
-function FactorCard({ title, percent, color, desc, delay }: any) {
+interface FactorCardProps {
+    title: string;
+    icon: React.ComponentType<{ className?: string }>;
+    score: string;
+    desc: string;
+    color: string;
+    delay: number; // Added delay to match existing usage
+}
+
+function FactorCard({ title, icon: Icon, score, desc, color, delay }: FactorCardProps) {
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -156,7 +166,7 @@ function FactorCard({ title, percent, color, desc, delay }: any) {
                 <div className={`w-12 h-1 bg-gradient-to-r ${color} rounded-full mb-6 group-hover:w-full transition-all duration-500`} />
                 <div className="flex justify-between items-baseline mb-4">
                     <h3 className="text-xl font-bold text-white">{title}</h3>
-                    <span className={`text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r ${color} opacity-80`}>{percent}</span>
+                    <span className={`text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r ${color} opacity-80`}>{score}</span>
                 </div>
                 <p className="text-sm text-slate-400 leading-relaxed">
                     {desc}

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { plaidClient } from "@/lib/plaid";
+import { successResponse, errorResponse } from "@/lib/api-utils";
 
 export async function POST(req: NextRequest) {
     try {
@@ -10,13 +12,20 @@ export async function POST(req: NextRequest) {
         });
 
         const accessToken = response.data.access_token;
-        // In a real app, store accessToken securely in DB associated with user
-        // For prototype, we'll return it to client layout (not recommended for prod)
-        // or use a secure cookie session. Ideally, do analysis here and return score only.
 
-        return NextResponse.json({ access_token: accessToken });
+        // Store in HTTP-only cookie
+        const cookieStore = await cookies();
+        cookieStore.set("plaid_access_token", accessToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "strict",
+            path: "/",
+            maxAge: 30 * 24 * 60 * 60, // 30 days
+        });
+
+        return successResponse({ access_token_set: true });
     } catch (error) {
         console.error("Error exchanging public token:", error);
-        return NextResponse.json({ error: "Failed to exchange token" }, { status: 500 });
+        return errorResponse("Failed to exchange token", 500);
     }
 }

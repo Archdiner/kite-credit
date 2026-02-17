@@ -13,7 +13,7 @@ import {
     rateLimitedResponse,
     getClientIp,
 } from "@/lib/api-utils";
-import { analyzeWallet, scoreOnChain } from "@/lib/solana";
+import { analyzeSolanaData as analyzeWallet, scoreOnChain } from "@/lib/solana";
 import { PublicKey } from "@solana/web3.js";
 
 export async function POST(request: NextRequest) {

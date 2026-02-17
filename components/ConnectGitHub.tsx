@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 
 interface Props {
@@ -8,7 +9,10 @@ interface Props {
 }
 
 export default function ConnectGitHub({ username, compact = false }: Props) {
+    const [loading, setLoading] = useState(false);
+
     const handleConnect = () => {
+        setLoading(true);
         window.location.href = "/api/auth/github";
     };
 
@@ -22,8 +26,10 @@ export default function ConnectGitHub({ username, compact = false }: Props) {
                     </div>
                 ) : (
                     <button
+                        type="button"
                         onClick={handleConnect}
-                        className="bg-slate-800/90 border border-white/10 hover:border-white/30 px-4 py-2 rounded-lg text-sm text-white font-medium transition-colors cursor-pointer"
+                        disabled={loading}
+                        className="flex items-center gap-2 px-4 py-2 bg-[#2ea44f] text-white rounded-lg hover:bg-[#2c974b] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         Connect GitHub
                     </button>

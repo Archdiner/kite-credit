@@ -19,7 +19,16 @@ interface Props {
 }
 
 export default function WalletProvider({ children }: Props) {
-    const endpoint = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
+    // Determine the Solana network. Default to mainnet-beta if not specified.
+    const network = (process.env.NEXT_PUBLIC_SOLANA_NETWORK || "mainnet-beta") as Cluster;
+
+    const endpoint = useMemo(() => {
+        if (process.env.NEXT_PUBLIC_SOLANA_RPC_URL) {
+            return process.env.NEXT_PUBLIC_SOLANA_RPC_URL;
+        }
+        console.warn("Using public Solana RPC endpoint. Rate limits may apply.");
+        return clusterApiUrl(network);
+    }, [network]);
 
     const wallets = useMemo(
         () => [new PhantomWalletAdapter(), new SolflareWalletAdapter()],

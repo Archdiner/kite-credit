@@ -9,6 +9,7 @@
 // ---------------------------------------------------------------------------
 
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { verifyWalletSignature } from "@/lib/wallet-verify";
 import { analyzeSolanaData, scoreOnChain } from "@/lib/solana";
 import { fetchGitHubData, scoreGitHub } from "@/lib/github";
@@ -18,21 +19,35 @@ import { assembleKiteScore } from "@/lib/scoring";
 import { generateAttestation } from "@/lib/attestation";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+// genAI instantiation moved inside handler to prevent startup crashes
 
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { walletAddress, walletSignature, includeGithub, plaidAccessToken } = body;
+        // Plaid token should be in HTTP-only cookie, not body
+        const cookieStore = await cookies();
+        const plaidAccessToken = cookieStore.get("plaid_access_token")?.value;
+
+        const { walletAddress, walletSignature, includeGithub } = body;
 
         // 1. Verify Wallet Ownership
-        if (!walletSignature || !verifyWalletSignature(walletAddress, walletSignature.split(':')[1]?.trim() || walletSignature, walletSignature.split('|')[0]?.trim() || "")) {
-            // Allow sloppy signature passing for prototype, but generally verify against nonce
-            // Real impl needs nonce storage. For now, we trust the signature if valid format
-            // Actually, let's just check if it's present for MVP demo
-            if (!walletSignature) {
-                return NextResponse.json({ success: false, error: "Wallet signature required" }, { status: 401 });
-            }
+        // Strict verification: Fail if signature is missing or invalid
+        // Expect format: "nonce:signatureBase64"
+
+        let nonce = "";
+        let signature = "";
+
+        if (walletSignature && walletSignature.includes(":")) {
+            const parts = walletSignature.split(":");
+            nonce = parts[0].trim();
+            signature = parts[1].trim();
+        } else {
+            // If legacy format or missing nonce, this will fail strict verification
+            signature = walletSignature;
+        }
+
+        if (!walletSignature || !verifyWalletSignature(walletAddress, nonce, signature)) {
+            return NextResponse.json({ success: false, error: "Invalid or missing wallet signature" }, { status: 401 });
         }
 
         // 2. Fetch & Score On-Chain Data
@@ -57,8 +72,8 @@ export async function POST(req: NextRequest) {
 
                 const accounts = accountsRes.data.accounts;
 
-                // Calculate financial metrics from Plaid data (Fix: access balances object)
-                const totalBalance = accounts.reduce((sum, acc) => sum + (acc.balances.available || acc.balances.current || 0), 0);
+                // Calculate financial metrics from Plaid data (Fix: access balances object safely)
+                const totalBalance = accounts.reduce((sum, acc) => sum + (acc.balances.available ?? acc.balances.current ?? 0), 0);
 
                 // Determine balance bracket
                 let balanceBracket = "under-1k";
@@ -95,6 +110,12 @@ export async function POST(req: NextRequest) {
         }
 
         // 5. AI Explanation
+        if (!process.env.GEMINI_API_KEY) {
+            return NextResponse.json({ success: false, error: "AI service unavailable" }, { status: 503 });
+        }
+
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        // genAI moved inside POST handler to prevent startup crashes if env var missing
         const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
         const prompt = `
       Analyze this credit profile for a DeFi lending protocol.

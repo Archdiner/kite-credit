@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { useWallet } from "@solana/wallet-adapter-react";
+import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import ScoreDisplay from "@/components/dashboard/ScoreDisplay";
 import ScoreBreakdownPanel from "@/components/dashboard/ScoreBreakdownPanel";
 import PlaidLinkButton from "@/components/dashboard/PlaidLinkButton";
@@ -16,12 +17,13 @@ type FlowState = "connect" | "loading" | "results";
 
 export default function DashboardPage() {
     const { publicKey, connected, signMessage } = useWallet();
+    const { setVisible } = useWalletModal();
     const [flowState, setFlowState] = useState<FlowState>("connect");
     const [kiteScore, setKiteScore] = useState<KiteScore | null>(null);
     const [attestation, setAttestation] = useState<ZKAttestation | null>(null);
     const [githubUser, setGithubUser] = useState<string | null>(null);
     const [bankConnected, setBankConnected] = useState(false);
-    const [plaidAccessToken, setPlaidAccessToken] = useState<string | null>(null);
+
     const [error, setError] = useState<string | null>(null);
 
     const handleCalculateScore = useCallback(async () => {
@@ -32,12 +34,16 @@ export default function DashboardPage() {
         try {
             // Step 1: Wallet signature verification
             let signature = "";
+            let nonce = "";
             if (signMessage) {
-                const nonce = crypto.randomUUID();
+                nonce = crypto.randomUUID();
                 const message = `Kite Credit: verify ownership of ${publicKey.toBase58()} | nonce: ${nonce}`;
                 const messageBytes = new TextEncoder().encode(message);
                 const signatureBytes = await signMessage(messageBytes);
-                signature = Buffer.from(signatureBytes).toString("base64");
+                // Fix: Use btoa for browser compatibility instead of Buffer
+                const base64Signature = btoa(String.fromCharCode(...new Uint8Array(signatureBytes)));
+                // Send nonce:signature so server can reconstruct the message
+                signature = `${nonce}:${base64Signature}`;
             }
 
             // Step 2: Fetch composite score
@@ -48,7 +54,8 @@ export default function DashboardPage() {
                     walletAddress: publicKey.toBase58(),
                     walletSignature: signature,
                     includeGithub: !!githubUser,
-                    plaidAccessToken: plaidAccessToken, // Send token to backend
+
+                    // plaidAccessToken is now handled via HTTP-only cookie
                 }),
             });
 
@@ -62,7 +69,7 @@ export default function DashboardPage() {
             setError(err instanceof Error ? err.message : "Something went wrong");
             setFlowState("connect");
         }
-    }, [publicKey, signMessage, githubUser, plaidAccessToken]);
+    }, [publicKey, signMessage, githubUser]);
 
     const handleConnectGitHub = () => {
         window.location.href = "/api/auth/github";
@@ -76,8 +83,8 @@ export default function DashboardPage() {
                 body: JSON.stringify({ public_token: publicToken }),
             });
             const data = await res.json();
-            if (data.access_token) {
-                setPlaidAccessToken(data.access_token);
+
+            if (data.success) {
                 setBankConnected(true);
             }
         } catch (err) {
@@ -187,7 +194,7 @@ export default function DashboardPage() {
                                                     className="w-full py-3 bg-gradient-to-r from-sky-500 to-blue-600 text-white font-bold tracking-wider uppercase text-sm rounded-lg hover:from-sky-400 hover:to-blue-500 transition-all shadow-lg"
                                                     onClick={() => {
                                                         // Trigger wallet modal
-                                                        document.querySelector<HTMLButtonElement>(".wallet-adapter-button")?.click();
+                                                        setVisible(true);
                                                     }}
                                                 >
                                                     Connect Wallet

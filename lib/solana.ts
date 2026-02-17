@@ -42,15 +42,30 @@ function getRpcConnection(): Connection {
 
 export async function getWalletAge(connection: Connection, address: string): Promise<number> {
     const pubkey = new PublicKey(address);
+    let oldest: any = null;
+    let before: string | undefined = undefined;
 
-    // Get the oldest signatures (limit 1, go as far back as possible)
-    const signatures = await connection.getSignaturesForAddress(pubkey, { limit: 1000 });
+    // Pagination loop to find the oldest transaction
+    // Limit loop to avoid timeout, e.g. 10 pages of 1000 txs = 10k txs
+    for (let i = 0; i < 10; i++) {
+        // Rate limit helps avoid 429s (though 1000 limit is "expensive")
+        if (i > 0) await new Promise(resolve => setTimeout(resolve, 500));
 
-    if (signatures.length === 0) return 0;
+        const signatures = await connection.getSignaturesForAddress(pubkey, {
+            limit: 1000,
+            before: before
+        });
 
-    // The last signature in the array is the oldest
-    const oldest = signatures[signatures.length - 1];
-    if (!oldest.blockTime) return 0;
+        if (signatures.length === 0) break;
+
+        oldest = signatures[signatures.length - 1];
+        before = oldest.signature;
+
+        // If we got fewer than 1000, we reached the end
+        if (signatures.length < 1000) break;
+    }
+
+    if (!oldest || !oldest.blockTime) return 0;
 
     const ageDays = Math.floor((Date.now() / 1000 - oldest.blockTime) / 86400);
     return ageDays;

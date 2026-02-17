@@ -1,8 +1,9 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { useRef, useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { ChevronDown } from "lucide-react";
 import type { ScoreBreakdown } from "@/types";
-import { useState } from "react";
 
 interface MetricBarProps {
     label: string;
@@ -44,15 +45,32 @@ function MetricBar({ label, value, max, color, delay, details }: MetricBarProps)
                 </div>
             </motion.div>
 
-            <motion.div
-                initial={false}
-                animate={{ height: isExpanded ? "auto" : 0, opacity: isExpanded ? 1 : 0 }}
-                className="overflow-hidden"
+            {/* New interactive header for expansion */}
+            <div
+                className="flex items-center justify-between w-full p-4 pl-12 cursor-pointer hover:bg-white/5 transition-colors"
+                onClick={() => setIsExpanded(!isExpanded)}
             >
-                <div className="pt-3 pb-1 pl-3 border-l-2 border-white/5 ml-1 mt-2 text-xs text-white/40 font-mono leading-relaxed">
-                    {details}
+                <div className="flex gap-8 text-sm text-gray-400">
+                    <span>{label}</span>
                 </div>
-            </motion.div>
+                <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
+            </div>
+
+            <AnimatePresence initial={false}>
+                {isExpanded && (
+                    <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden bg-black/20"
+                    >
+                        <div className="p-4 pl-12 space-y-3">
+                            {details}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

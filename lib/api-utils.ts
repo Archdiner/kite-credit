@@ -40,18 +40,27 @@ const RATE_LIMIT_MAX_TOKENS = 30;      // max requests in window
 const RATE_LIMIT_REFILL_RATE = 10;     // tokens restored per second
 const RATE_LIMIT_WINDOW_MS = 60_000;   // cleanup interval
 
-// Periodic cleanup of stale buckets to prevent memory leaks
-setInterval(() => {
-    const now = Date.now();
-    for (const [key, bucket] of buckets) {
-        if (now - bucket.lastRefill > RATE_LIMIT_WINDOW_MS * 5) {
-            buckets.delete(key);
-        }
-    }
-}, RATE_LIMIT_WINDOW_MS);
+// Periodic cleanup of stale buckets done lazily in rateLimit function to avoid
+// serverless module-level interval leaks.
+// const RATE_LIMIT_WINDOW_MS = 60_000; (kept for reference if needed, or inline)
 
 export function rateLimit(ip: string): { allowed: boolean; remaining: number } {
     const now = Date.now();
+
+    // Lazy cleanup: occasionally prune stale buckets (e.g. 1% chance or every call)
+    // For simplicity/performance in this context, we can just clean specific IP or
+    // iterate if map gets too big. Since this is a prototype, we'll skip the loop
+    // for now or implement a simple check.
+    // 
+    // Better implementation:
+    if (buckets.size > 1000) { // Safety cap
+        for (const [key, b] of buckets) {
+            if (now - b.lastRefill > RATE_LIMIT_WINDOW_MS) {
+                buckets.delete(key);
+            }
+        }
+    }
+
     let bucket = buckets.get(ip);
 
     if (!bucket) {

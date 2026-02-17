@@ -84,9 +84,9 @@ export interface GitHubData {
   publicRepos: number;
   totalStars: number;
   followers: number;
-  commitsLastYear: number;
+  recentCommitCount: number; // Renamed from commitsLastYear
   longestRepoAgeDays: number;
-  contributionStreak: number; // consecutive weeks with commits
+  recentActiveWeeks: number; // consecutive weeks with commits // Renamed from contributionStreak
 }
 
 export interface GitHubScore {
@@ -118,7 +118,9 @@ export interface FinancialScore {
     incomeConsistency: number;   // 0-165
     verificationBonus: number;   // 0-85
   };
+  verified: boolean;
 }
+
 
 // ---------------------------------------------------------------------------
 // Combined Kite Score

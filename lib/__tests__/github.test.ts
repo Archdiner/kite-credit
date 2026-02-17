@@ -12,9 +12,9 @@ function makeData(overrides: Partial<GitHubData> = {}): GitHubData {
         publicRepos: 0,
         totalStars: 0,
         followers: 0,
-        commitsLastYear: 0,
+        recentCommitCount: 0,
         longestRepoAgeDays: 0,
-        contributionStreak: 0,
+        recentActiveWeeks: 0,
         ...overrides,
     };
 }

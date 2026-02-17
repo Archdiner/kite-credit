@@ -6,6 +6,11 @@
 // client bundle.
 // ---------------------------------------------------------------------------
 
+// Prevent accidental client-side import of server secrets
+if (typeof window !== "undefined") {
+    throw new Error("lib/env.ts should only be imported on the server");
+}
+
 interface EnvConfig {
     // Solana
     SOLANA_RPC_URL: string;

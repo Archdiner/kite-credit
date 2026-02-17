@@ -17,7 +17,8 @@ import type {
     OnChainScore,
     FinancialScore,
     GitHubScore,
-    ScoreTier
+    ScoreTier,
+    ScoreBreakdown
 } from "@/types";
 
 interface AssembleParams {
@@ -148,4 +149,18 @@ export function getTier(score: number): ScoreTier {
     if (score >= 700) return "Strong";  // 700-799
     if (score >= 600) return "Steady";  // 600-699
     return "Building";                  // 0-599
+}
+
+export function getConnectedSources(breakdown: ScoreBreakdown): string[] {
+    const sources: string[] = ["solana_active"]; // Always present if we have a score
+
+    if (breakdown.financial?.verified) {
+        sources.push("bank_verified");
+    }
+
+    if (breakdown.github) {
+        sources.push("github_linked");
+    }
+
+    return sources;
 }

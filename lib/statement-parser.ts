@@ -24,6 +24,32 @@ export interface ParsedStatementData {
     confidence: number; // 0-1 confidence in extraction
 }
 
+function validateParsedStatementData(data: any): ParsedStatementData {
+    if (!data || typeof data !== 'object') throw new Error("Invalid data format");
+
+    // Basic type checks
+    if (data.accountHolder !== null && typeof data.accountHolder !== 'string') throw new Error("Invalid accountHolder");
+    if (data.bankName !== null && typeof data.bankName !== 'string') throw new Error("Invalid bankName");
+
+    // Number checks (coerce if string)
+    ['totalDeposits', 'totalWithdrawals', 'endingBalance', 'confidence'].forEach(field => {
+        if (typeof data[field] === 'string') data[field] = parseFloat(data[field]);
+        if (typeof data[field] !== 'number' || isNaN(data[field])) throw new Error(`Invalid number field: ${field}`);
+    });
+
+    if (!Array.isArray(data.transactions)) throw new Error("Transactions must be an array");
+
+    data.transactions.forEach((tx: any, i: number) => {
+        if (typeof tx.date !== 'string') throw new Error(`Invalid date at index ${i}`);
+        if (typeof tx.description !== 'string') throw new Error(`Invalid description at index ${i}`);
+        if (typeof tx.amount === 'string') tx.amount = parseFloat(tx.amount);
+        if (typeof tx.amount !== 'number' || isNaN(tx.amount)) throw new Error(`Invalid amount at index ${i}`);
+        if (!['income', 'expense', 'transfer'].includes(tx.category)) throw new Error(`Invalid category at index ${i}`);
+    });
+
+    return data as ParsedStatementData;
+}
+
 export async function parseBankStatement(pdfBase64: string): Promise<ParsedStatementData> {
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
@@ -57,7 +83,8 @@ export async function parseBankStatement(pdfBase64: string): Promise<ParsedState
 
         const text = result.response.text();
         const jsonStr = text.replace(/```json/g, "").replace(/```/g, "").trim();
-        const data = JSON.parse(jsonStr) as ParsedStatementData;
+        const rawData = JSON.parse(jsonStr);
+        const data = validateParsedStatementData(rawData);
 
         return data;
     } catch (error) {

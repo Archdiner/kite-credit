@@ -10,6 +10,10 @@ import { Configuration, PlaidApi, PlaidEnvironments } from "plaid";
 // Configuration
 // ---------------------------------------------------------------------------
 
+if (!process.env.PLAID_CLIENT_ID || !process.env.PLAID_SECRET) {
+    throw new Error("Missing PLAID_CLIENT_ID or PLAID_SECRET environment variables");
+}
+
 const configuration = new Configuration({
     basePath: PlaidEnvironments[process.env.PLAID_ENV || "sandbox"],
     baseOptions: {

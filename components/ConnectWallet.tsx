@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { motion } from "framer-motion";
@@ -13,9 +14,11 @@ export default function ConnectWallet({ onConnected, compact = false }: Props) {
     const { publicKey, connected } = useWallet();
 
     // Notify parent when wallet connects
-    if (connected && publicKey && onConnected) {
-        onConnected(publicKey.toBase58());
-    }
+    useEffect(() => {
+        if (connected && publicKey && onConnected) {
+            onConnected(publicKey.toBase58());
+        }
+    }, [connected, publicKey, onConnected]);
 
     const truncatedAddress = publicKey
         ? `${publicKey.toBase58().slice(0, 4)}...${publicKey.toBase58().slice(-4)}`

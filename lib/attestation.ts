@@ -8,6 +8,7 @@
 
 import type { KiteScore, ZKAttestation, ScoreTier } from "@/types";
 import { getConnectedSources } from "@/lib/scoring";
+import { createHmac } from "node:crypto";
 
 export function generateAttestation(score: KiteScore): ZKAttestation {
     const connectedSources = getConnectedSources(score.breakdown);
@@ -18,16 +19,16 @@ export function generateAttestation(score: KiteScore): ZKAttestation {
         tier: score.tier,
         sources: connectedSources,
         timestamp: score.timestamp,
+
+
     });
 
-    let hash = 0;
-    for (let i = 0; i < proofData.length; i++) {
-        const char = proofData.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash |= 0;
-    }
-
-    const proofHex = Math.abs(hash).toString(16).padStart(16, "0");
+    // HMAC-SHA256 signing
+    // Ensure ATTESTATION_SECRET is set in production!
+    const secret = process.env.ATTESTATION_SECRET || "dev-attestation-secret-change-me";
+    const hmac = createHmac("sha256", secret);
+    hmac.update(proofData);
+    const proofHex = hmac.digest("hex");
 
     return {
         kite_score: score.total,
