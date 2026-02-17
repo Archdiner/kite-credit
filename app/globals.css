@@ -1,17 +1,32 @@
 @import "tailwindcss";
 
+@theme {
+  --color-sky-pink: #FAD0C4;
+  --color-sunset-orange: #FF9A8B;
+  --color-city-teal-dark: #2C3E50;
+  --color-city-teal-light: #4CA1AF;
+  --color-kite-blue: #4facfe;
+  --color-kite-yellow: #f093fb;
+
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-drift: drift 10s linear infinite;
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-20px); }
+  }
+  @keyframes drift {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(20px); }
+  }
+}
+
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #2C3E50;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
+/* Dark mode overrides if needed, but we are sticking to specific aesthetic */
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
@@ -22,5 +37,5 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-outfit), sans-serif;
 }
