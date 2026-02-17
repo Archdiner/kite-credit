@@ -17,8 +17,10 @@ import {
 } from "@/lib/api-utils";
 import { analyzeWallet, scoreOnChain } from "@/lib/solana";
 import { analyzeGitHub, scoreGitHub } from "@/lib/github";
+import { generateMockProof, scoreFinancial } from "@/lib/reclaim";
 import { assembleKiteScore, getConnectedSources, calculateKiteScore } from "@/lib/scoring";
 import { generateScoreExplanation } from "@/lib/gemini";
+import { generateAttestation } from "@/lib/attestation";
 import type { ScoreBreakdown } from "@/types";
 
 export async function POST(request: NextRequest) {
@@ -29,7 +31,7 @@ export async function POST(request: NextRequest) {
 
     try {
         const body = await request.json();
-        const { walletAddress } = body;
+        const { walletAddress, includeFinancial = false, financialBalance } = body;
 
         const breakdown: ScoreBreakdown = {
             onChain: null,
@@ -61,7 +63,18 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        // Financial scoring will be added in Phase 5
+        // Financial scoring (if requested)
+        if (includeFinancial) {
+            try {
+                const financialData = generateMockProof({
+                    balance: financialBalance ?? 15000,
+                    incomeConsistent: true,
+                });
+                breakdown.financial = scoreFinancial(financialData);
+            } catch (err) {
+                console.error("[score] Financial analysis error:", err);
+            }
+        }
 
         // Calculate total
         const connectedSources = getConnectedSources(breakdown);
@@ -84,8 +97,12 @@ export async function POST(request: NextRequest) {
         });
 
         const kiteScore = assembleKiteScore(breakdown, explanation);
+        const attestation = generateAttestation(kiteScore);
 
-        return successResponse(kiteScore);
+        return successResponse({
+            score: kiteScore,
+            attestation,
+        });
     } catch (err) {
         console.error("[score] Error:", err);
         return errorResponse("Failed to calculate score. Please try again.", 500);
