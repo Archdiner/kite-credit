@@ -6,10 +6,7 @@ import {
     WalletProvider as SolanaWalletProvider,
 } from "@solana/wallet-adapter-react";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
-import {
-    PhantomWalletAdapter,
-    SolflareWalletAdapter,
-} from "@solana/wallet-adapter-wallets";
+
 import { clusterApiUrl, type Cluster } from "@solana/web3.js";
 
 // Default styles for the wallet adapter modal
@@ -31,8 +28,10 @@ export default function WalletProvider({ children }: Props) {
         return clusterApiUrl(network);
     }, [network]);
 
+    // Wallets are now automatically detected via the Wallet Standard
+    // We don't need to manually instantiate adapters for Phantom or Solflare
     const wallets = useMemo(
-        () => [new PhantomWalletAdapter(), new SolflareWalletAdapter()],
+        () => [],
         []
     );
 
