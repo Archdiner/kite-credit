@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { useWallet } from "@solana/wallet-adapter-react";
@@ -11,6 +11,7 @@ import PlaidLinkButton from "@/components/dashboard/PlaidLinkButton";
 import AttestationCard from "@/components/dashboard/AttestationCard";
 import ScoreRadarChart from "@/components/dashboard/ScoreRadarChart";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import type { KiteScore, ZKAttestation } from "@/types";
 
 type FlowState = "connect" | "loading" | "results";
@@ -25,6 +26,34 @@ export default function DashboardPage() {
     const [bankConnected, setBankConnected] = useState(false);
 
     const [error, setError] = useState<string | null>(null);
+    const searchParams = useSearchParams();
+
+    // Detect GitHub OAuth return and fetch username
+    useEffect(() => {
+        const githubStatus = searchParams.get("github");
+        const authError = searchParams.get("error");
+
+        if (githubStatus === "connected" && !githubUser) {
+            fetch("/api/github/analyze")
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success && data.data?.data?.login) {
+                        setGithubUser(data.data.data.login);
+                    }
+                })
+                .catch(() => { /* GitHub is optional, silently fail */ });
+        }
+
+        if (authError) {
+            const messages: Record<string, string> = {
+                missing_params: "GitHub authorization was incomplete.",
+                invalid_state: "GitHub auth session expired. Please try again.",
+                token_exchange_failed: "Failed to connect GitHub. Please try again.",
+                github_auth_failed: "GitHub authentication failed.",
+            };
+            setError(messages[authError] || `GitHub auth error: ${authError}`);
+        }
+    }, [searchParams, githubUser]);
 
     const handleCalculateScore = useCallback(async () => {
         if (!publicKey) return;
