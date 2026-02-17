@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
+import Link from "next/link";
 
 // Define the types for our city sections
 type SectionId = "overview" | "mission" | "engine" | "vision";
@@ -49,51 +50,6 @@ const sections: Record<string, CitySection> = {
 
 export default function CityExplorer() {
     const [activeSection, setActiveSection] = useState<SectionId>("overview");
-    const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 });
-    const [isLaunched, setIsLaunched] = useState(false);
-
-    useEffect(() => {
-        // Target: 3pm EST February 17th 2026
-        // EST is UTC-5. 3pm is 15:00.
-        // ISO string for 2026-02-17 15:00:00 EST (-05:00)
-        const targetDate = new Date("2026-02-17T15:00:00-05:00").getTime();
-
-        const calculateTime = () => {
-            const now = new Date().getTime();
-            const distance = targetDate - now;
-
-            if (distance < 0) {
-                setIsLaunched(true);
-                return;
-            }
-
-            // We only care about hours/mins/seconds for the immediate display if it's within 24h, 
-            // but let's handle days if needed (though request implies it's soon-ish or specific)
-            // User asked for "ends at", usually implies a countdown. 
-            // Let's show Hours:Minutes:Seconds. If > 24h, we include days in hours? 
-            // Or just Days Hours Minutes Seconds.
-            // Let's stick to a standard breakdown.
-
-            const days = Math.floor(distance / (1000 * 60 * 60 * 24));
-            const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-            const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-            const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-
-            // If days > 0, add them to hours for a simpler display or show days?
-            // Let's just pass the raw values and format in render.
-            // Actually simpler state:
-            setTimeLeft({
-                hours: hours + (days * 24),
-                minutes,
-                seconds
-            });
-        };
-
-        calculateTime(); // Initial call
-        const interval = setInterval(calculateTime, 1000);
-
-        return () => clearInterval(interval);
-    }, []);
 
     // Calculate the transform origin and scale based on the active section
     const getVariants = () => {
@@ -362,32 +318,21 @@ export default function CityExplorer() {
                                     </motion.button>
                                 ))}
 
-                                {/* Countdown Timer - Responsive Position */}
+                                {/* CTA Button - Responsive Position */}
                                 <motion.div
-                                    className="absolute transform -translate-x-1/2 flex items-center justify-center pointer-events-none z-0 left-1/2 bottom-[15%] md:top-[63%] md:bottom-auto"
+                                    className="absolute transform -translate-x-1/2 flex items-center justify-center pointer-events-auto z-20 left-1/2 bottom-[15%] md:top-[63%] md:bottom-auto"
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, y: 20 }}
                                     transition={{ delay: 0.5 }}
                                 >
-                                    <div className="bg-black/60 backdrop-blur-md border border-white/10 px-4 py-2 md:px-6 md:py-2 rounded-full flex gap-3 shadow-2xl">
-                                        {!isLaunched ? (
-                                            <>
-                                                <span className="text-sky-300 font-mono text-xs md:text-sm tracking-widest uppercase self-center">Liftoff In:</span>
-                                                <div className="flex gap-2 font-mono text-lg md:text-xl text-white font-bold">
-                                                    <span>{String(timeLeft.hours).padStart(2, '0')}h</span>
-                                                    <span className="opacity-50">:</span>
-                                                    <span>{String(timeLeft.minutes).padStart(2, '0')}m</span>
-                                                    <span className="opacity-50">:</span>
-                                                    <span>{String(timeLeft.seconds).padStart(2, '0')}s</span>
-                                                </div>
-                                            </>
-                                        ) : (
-                                            <span className="text-emerald-400 font-mono text-sm md:text-lg tracking-widest uppercase font-bold animate-pulse">
-                                                PROTOCOL LAUNCHED
-                                            </span>
-                                        )}
-                                    </div>
+                                    <Link
+                                        href="/auth"
+                                        className="bg-white text-slate-900 px-8 py-3 md:px-10 md:py-4 rounded-full font-bold tracking-widest uppercase text-sm md:text-base hover:bg-sky-50 transition-all shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:shadow-[0_0_30px_rgba(255,255,255,0.5)] flex items-center gap-3 hover:-translate-y-1 duration-300 group"
+                                    >
+                                        Take off now
+                                        <span className="text-sky-500 group-hover:translate-x-1 transition-transform">{"->"}</span>
+                                    </Link>
                                 </motion.div>
                             </>
                         )}
