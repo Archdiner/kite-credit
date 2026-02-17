@@ -1,15 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseBankStatement } from "@/lib/statement-parser";
 
-// Limit payload size config is Next.js specific, might need separate config file
-export const config = {
-    api: {
-        bodyParser: {
-            sizeLimit: '4mb',
-        },
-    },
-};
-
 export async function POST(req: NextRequest) {
     try {
         const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
