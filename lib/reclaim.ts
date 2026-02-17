@@ -7,6 +7,7 @@
 // ---------------------------------------------------------------------------
 
 import type { FinancialData, FinancialScore } from "@/types";
+import { getAppUrl } from "@/lib/env";
 
 // ---------------------------------------------------------------------------
 // Reclaim verification request
@@ -62,7 +63,7 @@ export async function initiateVerification(
                     appId,
                     appSecret,
                     providerId: "banking-balance",
-                    callbackUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/reclaim/callback`,
+                    callbackUrl: `${getAppUrl()}/api/reclaim/callback`,
                 }),
                 signal: AbortSignal.timeout(TIMEOUT_MS),
             }

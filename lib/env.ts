@@ -72,3 +72,13 @@ export function requireKeys(...keys: (keyof EnvConfig)[]): Partial<EnvConfig> {
     }
     return partial as Partial<EnvConfig>;
 }
+
+/**
+ * Returns the app's base URL, auto-detecting Vercel deployments.
+ * Priority: NEXT_PUBLIC_APP_URL > VERCEL_URL > localhost fallback.
+ */
+export function getAppUrl(): string {
+    if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL;
+    if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+    return "http://localhost:3000";
+}
