@@ -9,18 +9,18 @@ const securityHeaders = [
     key: "X-Frame-Options",
     value: "DENY",
   },
-  { // Added opening curly brace
+  {
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      "script-src 'self'", // Removed unsafe-eval/unsafe-inline
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: blob:",
-      "connect-src 'self' https://*.quiknode.pro https://api.github.com https://api.reclaimprotocol.org https://generativelanguage.googleapis.com",
-      "frame-src 'self'",
+      "connect-src 'self' https://*.quiknode.pro https://api.github.com https://api.reclaimprotocol.org https://generativelanguage.googleapis.com https://cdn.plaid.com https://sandbox.plaid.com https://production.plaid.com",
+      "frame-src 'self' https://cdn.plaid.com",
     ].join("; "),
-  }, // Moved closing curly brace
+  },
 ];
 
 const nextConfig: NextConfig = {
