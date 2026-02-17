@@ -10,6 +10,7 @@ import {
     PhantomWalletAdapter,
     SolflareWalletAdapter,
 } from "@solana/wallet-adapter-wallets";
+import { clusterApiUrl, type Cluster } from "@solana/web3.js";
 
 // Default styles for the wallet adapter modal
 import "@solana/wallet-adapter-react-ui/styles.css";
