@@ -88,14 +88,19 @@ export async function getTransactionHistory(
     for (let i = 0; i < signatures.length; i += batchSize) {
         if (i > 0) await new Promise((r) => setTimeout(r, 100));
         const batch = signatures.slice(i, i + batchSize);
-        const results = await Promise.all(
-            batch.map((sig) =>
-                connection.getParsedTransaction(sig.signature, {
-                    maxSupportedTransactionVersion: 0,
-                })
-            )
-        );
-        txs.push(...results);
+        try {
+            const results = await Promise.all(
+                batch.map((sig) =>
+                    connection.getParsedTransaction(sig.signature, {
+                        maxSupportedTransactionVersion: 0,
+                    })
+                )
+            );
+            txs.push(...results);
+        } catch (error) {
+            console.error("[solana] Failed to fetch batch, skipping:", error);
+            // Continue to next batch instead of failing entirely
+        }
     }
 
     return txs;

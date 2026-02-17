@@ -59,6 +59,30 @@ export async function POST(req: NextRequest) {
             if (user) {
                 userId = user.id;
 
+                // CHECK CACHE: If the user has a recent score (last 5 mins), return it
+                // This prevents score fluctuation due to RPC instability on refresh
+                const { data: latestScore } = await (await import("@/lib/auth")).getLatestScore(userId);
+                if (latestScore) {
+                    const lastCalc = new Date(latestScore.calculated_at).getTime();
+                    const now = Date.now();
+                    const diffMins = (now - lastCalc) / (1000 * 60);
+
+                    if (diffMins < 5) {
+                        return successResponse({
+                            score: {
+                                total: latestScore.total_score,
+                                tier: latestScore.tier,
+                                breakdown: latestScore.breakdown,
+                                githubBonus: latestScore.github_bonus,
+                                explanation: latestScore.explanation,
+                                timestamp: latestScore.calculated_at,
+                            },
+                            attestation: latestScore.attestation,
+                            cached: true
+                        });
+                    }
+                }
+
                 // If no Plaid cookie, try loading from DB
                 if (!plaidAccessToken) {
                     const plaidConn = await getConnection(user.id, "plaid");
@@ -107,7 +131,7 @@ export async function POST(req: NextRequest) {
 
                 financialScore = scoreFinancial({
                     verified: true,
-                    proofHash: "plaid_verified_" + Math.random().toString(36).substring(7),
+                    proofHash: "plaid_verified_" + walletAddress.slice(0, 8),
                     balanceBracket,
                     incomeConsistency,
                     provider: "plaid"
