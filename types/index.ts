@@ -140,6 +140,10 @@ export interface KiteScore {
   breakdown: ScoreBreakdown;
   githubBonus: number;  // 0-50
   explanation: string;  // Gemini-generated plain-language summary
+  weights?: {           // Dynamic weights applied
+    onChain: number;
+    financial: number;
+  };
   timestamp: string;    // ISO 8601
 }
 
