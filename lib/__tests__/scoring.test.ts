@@ -1,106 +1,123 @@
 // ---------------------------------------------------------------------------
-// Scoring engine tests (v2 -- 50/50 on-chain + financial)
+// Tests for Kite Score Calculation (v3 - 5 Factor Model)
 // ---------------------------------------------------------------------------
 
-import { calculateKiteScore, getTier, getConnectedSources } from "../scoring";
-import type { ScoreBreakdown, OnChainScore, GitHubScore, FinancialScore } from "@/types";
+import { assembleKiteScore, getTier } from "../scoring";
+import type { OnChainScore, FinancialScore, GitHubScore } from "@/types";
 
-const onChainScore: OnChainScore = {
-    score: 300,
-    breakdown: { walletAge: 100, deFiActivity: 120, repaymentHistory: 60, staking: 20 },
-};
+describe("Kite Scoring Engine v3", () => {
+    // Mock Data
+    const mockOnChain: OnChainScore = {
+        score: 500, // Max on-chain
+        breakdown: {
+            walletAge: 125,
+            deFiActivity: 190,
+            repaymentHistory: 125,
+            staking: 60,
+        },
+    };
 
-const githubScore: GitHubScore = {
-    score: 180,
-    breakdown: { accountAge: 40, repoPortfolio: 50, commitConsistency: 60, communityTrust: 30 },
-};
+    const mockFinancial: FinancialScore = {
+        score: 500, // Max financial
+        breakdown: {
+            balanceHealth: 250,
+            incomeConsistency: 165,
+            verificationBonus: 85,
+        },
+    };
 
-const financialScore: FinancialScore = {
-    score: 350,
-    breakdown: { balanceHealth: 150, incomeConsistency: 130, verificationBonus: 70 },
-};
+    const mockGitHub: GitHubScore = {
+        score: 300, // Max GitHub
+        breakdown: {
+            accountAge: 50,
+            repoPortfolio: 75,
+            commitConsistency: 100,
+            communityTrust: 75,
+        },
+    };
 
-describe("calculateKiteScore", () => {
-    it("sums core scores (on-chain + financial only)", () => {
-        const result = calculateKiteScore({
-            onChain: onChainScore,
-            github: null,
-            financial: financialScore,
+    describe("getTier", () => {
+        it("classifies scores correctly", () => {
+            expect(getTier(850)).toBe("Elite");
+            expect(getTier(750)).toBe("Strong");
+            expect(getTier(650)).toBe("Steady");
+            expect(getTier(500)).toBe("Building");
+            expect(getTier(0)).toBe("Building");
         });
-        expect(result.total).toBe(650); // 300 + 350
     });
 
-    it("adds GitHub as bonus scaled from 0-300 to 0-100", () => {
-        const withGithub = calculateKiteScore({
-            onChain: onChainScore,
-            github: githubScore,
-            financial: financialScore,
-        });
-        // Core: 300 + 350 = 650. GitHub bonus: floor(180/300 * 100) = 60
-        expect(withGithub.total).toBe(710);
-    });
+    describe("assembleKiteScore", () => {
+        it("calculates a perfect score correctly", () => {
+            const result = assembleKiteScore(
+                {
+                    onChain: mockOnChain,
+                    financial: mockFinancial,
+                    github: mockGitHub,
+                },
+                "Test explanation"
+            );
 
-    it("handles null sub-scores", () => {
-        const result = calculateKiteScore({
-            onChain: onChainScore,
-            github: null,
-            financial: null,
-        });
-        expect(result.total).toBe(300);
-    });
+            // 5 Factors:
+            // Payment History: 175 (on-chain) + 175 (bank) = 350
+            // Utilization: 150 (on-chain staking) + 150 (bank balance) = 300
+            // Credit Age: 150 (wallet age) = 150
+            // Credit Mix: 100 (DeFi activity) = 100
+            // New Credit: 100 (verification bonus) = 100
+            // Total Core = 1000
+            // + GitHub Bonus = 50
+            // Capped at 1000
 
-    it("caps at 1000", () => {
-        const maxOnChain: OnChainScore = {
-            score: 500,
-            breakdown: { walletAge: 125, deFiActivity: 190, repaymentHistory: 125, staking: 60 },
-        };
-        const maxFinancial: FinancialScore = {
-            score: 500,
-            breakdown: { balanceHealth: 250, incomeConsistency: 165, verificationBonus: 85 },
-        };
-        const maxGithub: GitHubScore = {
-            score: 300,
-            breakdown: { accountAge: 50, repoPortfolio: 75, commitConsistency: 100, communityTrust: 75 },
-        };
-        const result = calculateKiteScore({
-            onChain: maxOnChain,
-            github: maxGithub,
-            financial: maxFinancial,
+            expect(result.total).toBe(1000);
+            expect(result.tier).toBe("Elite");
+            expect(result.breakdown.fiveFactor.paymentHistory.score).toBe(350);
+            expect(result.githubBonus).toBe(50);
         });
-        expect(result.total).toBeLessThanOrEqual(1000);
-        expect(result.tier).toBe("Elite");
-    });
-});
 
-describe("getTier", () => {
-    it("returns correct tiers", () => {
-        expect(getTier(0)).toBe("Building");
-        expect(getTier(300)).toBe("Building");
-        expect(getTier(301)).toBe("Steady");
-        expect(getTier(550)).toBe("Steady");
-        expect(getTier(551)).toBe("Strong");
-        expect(getTier(750)).toBe("Strong");
-        expect(getTier(751)).toBe("Elite");
-        expect(getTier(1000)).toBe("Elite");
-    });
-});
+        it("calculates score without financial data", () => {
+            const result = assembleKiteScore(
+                {
+                    onChain: mockOnChain,
+                    financial: null,
+                    github: null,
+                },
+                "Test explanation"
+            );
 
-describe("getConnectedSources", () => {
-    it("returns all connected sources", () => {
-        const sources = getConnectedSources({
-            onChain: onChainScore,
-            github: githubScore,
-            financial: financialScore,
+            // Payment History: 175 (on-chain) + 0 = 175
+            // Utilization: 150 (on-chain staking) + 0 = 150
+            // Credit Age: 150 (wallet age) = 150
+            // Credit Mix: 100 (DeFi activity) = 100
+            // New Credit: 50 (baseline) = 50
+            // Total = 625
+
+            expect(result.total).toBe(625);
+            expect(result.tier).toBe("Steady");
         });
-        expect(sources).toEqual(["solana_active", "github_linked", "bank_verified"]);
-    });
 
-    it("returns empty for no sources", () => {
-        const sources = getConnectedSources({
-            onChain: null,
-            github: null,
-            financial: null,
+        it("calculates score with only empty wallet", () => {
+            const emptyOnChain: OnChainScore = {
+                score: 0,
+                breakdown: { walletAge: 0, deFiActivity: 0, repaymentHistory: 0, staking: 0 }
+            };
+
+            const result = assembleKiteScore(
+                {
+                    onChain: emptyOnChain,
+                    financial: null,
+                    github: null,
+                },
+                "Test explanation"
+            );
+
+            // Payment History: 0
+            // Utilization: 0
+            // Credit Age: 0
+            // Credit Mix: 0
+            // New Credit: 50 (baseline)
+            // Total = 50
+
+            expect(result.total).toBe(50);
+            expect(result.tier).toBe("Building");
         });
-        expect(sources).toEqual([]);
     });
 });

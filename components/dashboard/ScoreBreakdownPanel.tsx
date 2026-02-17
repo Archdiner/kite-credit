@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import type { ScoreBreakdown } from "@/types";
+import { useState } from "react";
 
 interface MetricBarProps {
     label: string;
@@ -9,156 +10,149 @@ interface MetricBarProps {
     max: number;
     color: string;
     delay: number;
+    details?: React.ReactNode;
 }
 
-function MetricBar({ label, value, max, color, delay }: MetricBarProps) {
+function MetricBar({ label, value, max, color, delay, details }: MetricBarProps) {
     const percentage = Math.min(100, (value / max) * 100);
+    const [isExpanded, setIsExpanded] = useState(false);
 
     return (
-        <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay, duration: 0.5 }}
-            className="space-y-2"
-        >
-            <div className="flex justify-between items-baseline">
-                <span className="text-xs font-bold text-white/60 tracking-[0.15em] uppercase">
-                    {label}
-                </span>
-                <span className="text-sm font-mono text-white/80">
-                    {value}<span className="text-white/30">/{max}</span>
-                </span>
-            </div>
-            <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-                <motion.div
-                    className={`h-full rounded-full ${color}`}
-                    initial={{ width: 0 }}
-                    animate={{ width: `${percentage}%` }}
-                    transition={{ delay: delay + 0.2, duration: 1, ease: "easeOut" }}
-                />
-            </div>
-        </motion.div>
+        <div className="group">
+            <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay, duration: 0.5 }}
+                className="space-y-2 cursor-pointer"
+                onClick={() => setIsExpanded(!isExpanded)}
+            >
+                <div className="flex justify-between items-baseline">
+                    <span className="text-xs font-bold text-white/50 tracking-[0.1em] uppercase group-hover:text-white/80 transition-colors">
+                        {label}
+                    </span>
+                    <span className="text-sm font-mono text-white/90">
+                        {value}<span className="text-white/30 text-xs">/{max}</span>
+                    </span>
+                </div>
+                <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                    <motion.div
+                        className={`h-full rounded-full ${color}`}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${percentage}%` }}
+                        transition={{ delay: delay + 0.2, duration: 1, ease: "easeOut" }}
+                    />
+                </div>
+            </motion.div>
+
+            <motion.div
+                initial={false}
+                animate={{ height: isExpanded ? "auto" : 0, opacity: isExpanded ? 1 : 0 }}
+                className="overflow-hidden"
+            >
+                <div className="pt-3 pb-1 pl-3 border-l-2 border-white/5 ml-1 mt-2 text-xs text-white/40 font-mono leading-relaxed">
+                    {details}
+                </div>
+            </motion.div>
+        </div>
     );
 }
 
 export default function ScoreBreakdownPanel({ breakdown }: { breakdown: ScoreBreakdown }) {
-    return (
-        <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-        >
-            <div className="grid md:grid-cols-2 gap-6">
-                {/* On-Chain Breakdown */}
-                {breakdown.onChain && (
-                    <div className="relative">
-                        <div className="absolute inset-0 bg-sky-500/5 rounded-xl blur-xl" />
-                        <div className="relative bg-slate-900/70 backdrop-blur-lg rounded-xl p-6 border border-sky-500/10">
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="w-2.5 h-2.5 bg-sky-400 rotate-45" />
-                                <h3 className="text-sm font-bold text-white/60 tracking-[0.2em] uppercase">
-                                    On-Chain
-                                </h3>
-                                <span className="ml-auto text-lg font-bold text-sky-400 font-mono">
-                                    {breakdown.onChain.score}
-                                </span>
-                            </div>
-                            <div className="space-y-4">
-                                <MetricBar
-                                    label="Wallet Age"
-                                    value={breakdown.onChain.breakdown.walletAge}
-                                    max={125}
-                                    color="bg-gradient-to-r from-sky-500 to-sky-400"
-                                    delay={0.5}
-                                />
-                                <MetricBar
-                                    label="DeFi Activity"
-                                    value={breakdown.onChain.breakdown.deFiActivity}
-                                    max={190}
-                                    color="bg-gradient-to-r from-sky-400 to-blue-500"
-                                    delay={0.6}
-                                />
-                                <MetricBar
-                                    label="Repayment History"
-                                    value={breakdown.onChain.breakdown.repaymentHistory}
-                                    max={125}
-                                    color="bg-gradient-to-r from-blue-500 to-indigo-500"
-                                    delay={0.7}
-                                />
-                                <MetricBar
-                                    label="Staking"
-                                    value={breakdown.onChain.breakdown.staking}
-                                    max={60}
-                                    color="bg-gradient-to-r from-indigo-500 to-violet-500"
-                                    delay={0.8}
-                                />
-                            </div>
-                        </div>
-                    </div>
-                )}
+    if (!breakdown.fiveFactor) return null;
 
-                {/* Financial Breakdown */}
-                {breakdown.financial && (
-                    <div className="relative">
-                        <div className="absolute inset-0 bg-orange-500/5 rounded-xl blur-xl" />
-                        <div className="relative bg-slate-900/70 backdrop-blur-lg rounded-xl p-6 border border-orange-500/10">
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="w-2.5 h-2.5 bg-orange-400 rotate-45" />
-                                <h3 className="text-sm font-bold text-white/60 tracking-[0.2em] uppercase">
-                                    Financial
-                                </h3>
-                                <span className="ml-auto text-lg font-bold text-orange-400 font-mono">
-                                    {breakdown.financial.score}
-                                </span>
-                            </div>
-                            <div className="space-y-4">
-                                <MetricBar
-                                    label="Balance Health"
-                                    value={breakdown.financial.breakdown.balanceHealth}
-                                    max={250}
-                                    color="bg-gradient-to-r from-orange-500 to-amber-500"
-                                    delay={0.5}
-                                />
-                                <MetricBar
-                                    label="Income Consistency"
-                                    value={breakdown.financial.breakdown.incomeConsistency}
-                                    max={165}
-                                    color="bg-gradient-to-r from-amber-500 to-orange-400"
-                                    delay={0.6}
-                                />
-                                <MetricBar
-                                    label="Verification Bonus"
-                                    value={breakdown.financial.breakdown.verificationBonus}
-                                    max={85}
-                                    color="bg-gradient-to-r from-orange-400 to-red-400"
-                                    delay={0.7}
-                                />
-                            </div>
-                        </div>
-                    </div>
-                )}
+    const { paymentHistory, utilization, creditAge, creditMix, newCredit } = breakdown.fiveFactor;
+
+    return (
+        <div className="space-y-8">
+            <div className="flex items-center gap-3 mb-6">
+                <div className="w-1 h-4 bg-emerald-400 rounded-full" />
+                <h3 className="text-sm font-bold text-white/80 tracking-[0.2em] uppercase">
+                    Score Factors
+                </h3>
             </div>
 
-            {/* GitHub Bonus (if present) */}
+            <div className="space-y-6 bg-white/5 backdrop-blur-md rounded-2xl p-6 border border-white/10 shadow-xl">
+                <MetricBar
+                    label="Payment History"
+                    value={paymentHistory.score}
+                    max={350}
+                    color="bg-gradient-to-r from-emerald-500 to-teal-400"
+                    delay={0.1}
+                    details={
+                        <div className="grid grid-cols-1 gap-1">
+                            <div className="flex justify-between"><span>On-Chain Repayment History</span> <span className="text-emerald-400">{paymentHistory.details.onChainRepayments} pts</span></div>
+                            <div className="flex justify-between"><span>Bank Bill Pay Consistency</span> <span className="text-teal-400">{paymentHistory.details.bankBillPay} pts</span></div>
+                        </div>
+                    }
+                />
+
+                <MetricBar
+                    label="Utilization"
+                    value={utilization.score}
+                    max={300}
+                    color="bg-gradient-to-r from-teal-400 to-sky-400"
+                    delay={0.2}
+                    details={
+                        <div className="grid grid-cols-1 gap-1">
+                            <div className="flex justify-between"><span>Collateral Health</span> <span className="text-teal-400">{utilization.details.collateralHealth} pts</span></div>
+                            <div className="flex justify-between"><span>Bank Balance Ratio</span> <span className="text-sky-400">{utilization.details.balanceRatio} pts</span></div>
+                        </div>
+                    }
+                />
+
+                <MetricBar
+                    label="Credit Age"
+                    value={creditAge.score}
+                    max={150}
+                    color="bg-gradient-to-r from-sky-400 to-indigo-400"
+                    delay={0.3}
+                    details={
+                        <div className="flex justify-between"><span>Wallet Age Score</span> <span className="text-indigo-400">{creditAge.details.walletAge} pts</span></div>
+                    }
+                />
+
+                <MetricBar
+                    label="Credit Mix"
+                    value={creditMix.score}
+                    max={100}
+                    color="bg-gradient-to-r from-indigo-400 to-violet-400"
+                    delay={0.4}
+                    details={
+                        <div className="flex justify-between"><span>DeFi Protocol Diversity</span> <span className="text-violet-400">{creditMix.details.protocolDiversity} pts</span></div>
+                    }
+                />
+
+                <MetricBar
+                    label="New Credit"
+                    value={newCredit.score}
+                    max={100}
+                    color="bg-gradient-to-r from-violet-400 to-purple-400"
+                    delay={0.5}
+                    details={
+                        <div className="flex justify-between"><span>Recent Inquiries Impact</span> <span className="text-purple-400">{newCredit.score} pts</span></div>
+                    }
+                />
+            </div>
+
+            {/* GitHub Bonus Section */}
             {breakdown.github && (
                 <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.9 }}
-                    className="mt-4 bg-slate-900/40 backdrop-blur-lg rounded-xl p-4 border border-indigo-500/10"
+                    transition={{ delay: 0.6 }}
+                    className="mt-4 bg-slate-900/30 backdrop-blur-lg rounded-xl p-4 border border-indigo-500/20 flex flex-col gap-2"
                 >
                     <div className="flex items-center gap-3">
-                        <div className="w-2 h-2 bg-indigo-400 rotate-45 opacity-60" />
-                        <span className="text-xs font-bold text-white/40 tracking-[0.2em] uppercase">
+                        <div className="w-2 h-2 bg-indigo-400 rotate-45" />
+                        <span className="text-xs font-bold text-white/50 tracking-[0.2em] uppercase">
                             GitHub Bonus
                         </span>
-                        <span className="text-sm font-bold text-indigo-300/60 font-mono">
-                            +{Math.floor((breakdown.github.score / 300) * 100)}
+                        <span className="ml-auto text-sm font-bold text-indigo-300 font-mono">
+                            +{Math.floor((breakdown.github.score / 6))} pts
                         </span>
-                        <span className="text-[10px] text-white/20 font-mono">(from {breakdown.github.score}/300 raw)</span>
                     </div>
                 </motion.div>
             )}
-        </motion.div>
+        </div>
     );
 }

@@ -83,6 +83,10 @@ export async function getCommitActivity(token: string, username: string) {
 // ---------------------------------------------------------------------------
 
 export async function analyzeGitHub(token: string): Promise<GitHubData> {
+    return fetchGitHubData(token);
+}
+
+export async function fetchGitHubData(token: string): Promise<GitHubData> {
     const profile = await getUserProfile(token);
     const repos = await getRepos(token);
     const commitActivity = await getCommitActivity(token, profile.login);

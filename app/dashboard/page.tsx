@@ -6,7 +6,10 @@ import Image from "next/image";
 import { useWallet } from "@solana/wallet-adapter-react";
 import ScoreDisplay from "@/components/dashboard/ScoreDisplay";
 import ScoreBreakdownPanel from "@/components/dashboard/ScoreBreakdownPanel";
+import PlaidLinkButton from "@/components/dashboard/PlaidLinkButton";
 import AttestationCard from "@/components/dashboard/AttestationCard";
+import ScoreRadarChart from "@/components/dashboard/ScoreRadarChart";
+import Link from "next/link";
 import type { KiteScore, ZKAttestation } from "@/types";
 
 type FlowState = "connect" | "loading" | "results";
@@ -17,7 +20,8 @@ export default function DashboardPage() {
     const [kiteScore, setKiteScore] = useState<KiteScore | null>(null);
     const [attestation, setAttestation] = useState<ZKAttestation | null>(null);
     const [githubUser, setGithubUser] = useState<string | null>(null);
-    const [bankVerified, setBankVerified] = useState(false);
+    const [bankConnected, setBankConnected] = useState(false);
+    const [plaidAccessToken, setPlaidAccessToken] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
     const handleCalculateScore = useCallback(async () => {
@@ -44,7 +48,7 @@ export default function DashboardPage() {
                     walletAddress: publicKey.toBase58(),
                     walletSignature: signature,
                     includeGithub: !!githubUser,
-                    includeBankVerification: bankVerified,
+                    plaidAccessToken: plaidAccessToken, // Send token to backend
                 }),
             });
 
@@ -58,26 +62,27 @@ export default function DashboardPage() {
             setError(err instanceof Error ? err.message : "Something went wrong");
             setFlowState("connect");
         }
-    }, [publicKey, signMessage, githubUser, bankVerified]);
+    }, [publicKey, signMessage, githubUser, plaidAccessToken]);
 
     const handleConnectGitHub = () => {
         window.location.href = "/api/auth/github";
     };
 
-    const handleVerifyBank = async () => {
+    const handlePlaidSuccess = async (publicToken: string) => {
         try {
-            const res = await fetch("/api/reclaim/verify", {
+            const res = await fetch("/api/plaid/exchange", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ provider: "chase" }),
+                body: JSON.stringify({ public_token: publicToken }),
             });
             const data = await res.json();
-            if (data.success) {
-                setBankVerified(true);
+            if (data.access_token) {
+                setPlaidAccessToken(data.access_token);
+                setBankConnected(true);
             }
-        } catch {
-            // Mock verification fallback for prototype
-            setBankVerified(true);
+        } catch (err) {
+            console.error(err);
+            setError("Failed to connect bank account");
         }
     };
 
@@ -210,18 +215,18 @@ export default function DashboardPage() {
                                             <p className="text-sm text-white/60 mb-6 leading-relaxed">
                                                 ZK-verified bank balance, income consistency, and cash flow health.
                                             </p>
-                                            {bankVerified ? (
+                                            {bankConnected ? (
                                                 <div className="flex items-center gap-2 bg-orange-500/10 border border-orange-400/30 rounded-lg px-4 py-3">
                                                     <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                                                    <span className="text-sm text-orange-200 font-mono">Bank Verified (ZK)</span>
+                                                    <span className="text-sm text-orange-200 font-mono">Bank Connected (Plaid)</span>
                                                 </div>
                                             ) : (
-                                                <button
-                                                    onClick={handleVerifyBank}
+                                                <PlaidLinkButton
+                                                    onSuccess={handlePlaidSuccess}
                                                     className="w-full py-3 bg-gradient-to-r from-orange-500 to-amber-600 text-white font-bold tracking-wider uppercase text-sm rounded-lg hover:from-orange-400 hover:to-amber-500 transition-all shadow-lg"
                                                 >
-                                                    Verify Bank Account
-                                                </button>
+                                                    Connect Bank Account
+                                                </PlaidLinkButton>
                                             )}
                                         </div>
                                     </motion.div>
@@ -355,35 +360,61 @@ export default function DashboardPage() {
                                 transition={{ duration: 0.8 }}
                                 className="space-y-10"
                             >
-                                {/* Score Display */}
-                                <ScoreDisplay score={kiteScore} />
+                                <div className="flex justify-between items-center">
+                                    <h2 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-orange-400 to-amber-200">
+                                        Your Credit Profile
+                                    </h2>
+                                    <Link href="/how-it-works" className="text-xs text-white/50 hover:text-white/80 transition-colors uppercase tracking-widest border border-white/10 px-4 py-2 rounded-full">
+                                        How It Works
+                                    </Link>
+                                </div>
 
-                                {/* Breakdown Panel */}
-                                <ScoreBreakdownPanel breakdown={kiteScore.breakdown} />
+                                <div className="grid lg:grid-cols-12 gap-8">
+                                    {/* Left Column: Score + Attestation */}
+                                    <div className="lg:col-span-5 space-y-6">
+                                        <motion.div
+                                            initial={{ opacity: 0, y: 20 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            className="bg-slate-900/50 backdrop-blur-xl rounded-3xl p-8 border border-white/10 shadow-2xl relative overflow-hidden"
+                                        >
+                                            <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-purple-500/5" />
+                                            <div className="relative z-10">
+                                                <ScoreDisplay score={kiteScore} />
 
-                                {/* AI Explanation */}
-                                <motion.div
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: 0.6 }}
-                                    className="relative"
-                                >
-                                    <div className="absolute inset-0 bg-gradient-to-r from-orange-500/5 to-sky-500/5 rounded-xl blur-xl" />
-                                    <div className="relative bg-slate-900/70 backdrop-blur-lg rounded-xl p-8 border border-white/10">
-                                        <div className="flex items-center gap-3 mb-4">
-                                            <div className="w-2 h-2 bg-emerald-400 rotate-45" />
-                                            <h3 className="text-sm font-bold text-white/60 tracking-[0.2em] uppercase">
-                                                AI Analysis
-                                            </h3>
-                                        </div>
-                                        <p className="text-white/80 leading-relaxed font-light text-lg">
-                                            {kiteScore.explanation}
-                                        </p>
+                                                {attestation && (
+                                                    <div className="mt-8">
+                                                        <AttestationCard attestation={attestation} />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </motion.div>
                                     </div>
-                                </motion.div>
 
-                                {/* Attestation Card */}
-                                {attestation && <AttestationCard attestation={attestation} />}
+                                    {/* Right Column: Radar + Breakdown */}
+                                    <div className="lg:col-span-7 space-y-6">
+                                        <motion.div
+                                            initial={{ opacity: 0, scale: 0.95 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            transition={{ delay: 0.2 }}
+                                            className="grid md:grid-cols-2 gap-6"
+                                        >
+                                            <div className="bg-slate-900/40 backdrop-blur-lg rounded-2xl p-6 border border-white/5 flex items-center justify-center min-h-[300px]">
+                                                {kiteScore.breakdown.fiveFactor && (
+                                                    <ScoreRadarChart breakdown={kiteScore.breakdown.fiveFactor} />
+                                                )}
+                                            </div>
+
+                                            <div className="bg-slate-900/40 backdrop-blur-lg rounded-2xl p-6 border border-white/5 flex flex-col justify-center">
+                                                <h4 className="text-xs font-bold text-white/40 uppercase tracking-widest mb-4">AI Analysis</h4>
+                                                <p className="text-sm text-white/80 leading-relaxed italic border-l-2 border-indigo-500/30 pl-4 py-2">
+                                                    &quot;{kiteScore.explanation}&quot;
+                                                </p>
+                                            </div>
+                                        </motion.div>
+
+                                        <ScoreBreakdownPanel breakdown={kiteScore.breakdown} />
+                                    </div>
+                                </div>
 
                                 {/* Recalculate */}
                                 <motion.div

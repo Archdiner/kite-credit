@@ -1,88 +1,151 @@
 // ---------------------------------------------------------------------------
-// Scoring Engine -- The Lift Equation (v2)
+// FICO-Inspired Scoring Engine v3
 // ---------------------------------------------------------------------------
-// Combines sub-scores from on-chain and financial data into a single
-// Kite Score (0-1000) with tier classification.
-//
-// Core score: On-chain (0-500, 50%) + Financial (0-500, 50%) = 0-1000
-// Optional:   GitHub bonus (0-100) does NOT add to max but can boost
-// ---------------------------------------------------------------------------
-
-import type { ScoreTier, ScoreBreakdown, KiteScore } from "@/types";
-
-// ---------------------------------------------------------------------------
-// Tier classification
+// Calculates the comprehensive Kite Score (0-1000) based on the "5 Factors":
+// 1. Payment History (35%) - 350 pts
+// 2. Utilization (30%) - 300 pts
+// 3. Credit Age (15%) - 150 pts
+// 4. Credit Mix (10%) - 100 pts
+// 5. New Credit (10%) - 100 pts
+// + GitHub Bonus (+50 pts)
 // ---------------------------------------------------------------------------
 
-export function getTier(score: number): ScoreTier {
-    if (score <= 300) return "Building";
-    if (score <= 550) return "Steady";
-    if (score <= 750) return "Strong";
-    return "Elite";
+import type {
+    KiteScore,
+    ScoreBreakdown as LegacyScoreBreakdown,
+    FiveFactorBreakdown,
+    OnChainScore,
+    FinancialScore,
+    GitHubScore,
+    ScoreTier
+} from "@/types";
+
+interface AssembleParams {
+    onChain: OnChainScore;
+    financial: FinancialScore | null;
+    github: GitHubScore | null;
 }
 
-// ---------------------------------------------------------------------------
-// The Lift Equation v2
-// ---------------------------------------------------------------------------
-// Core scoring: on-chain (0-500) + financial (0-500) = 0-1000
-// GitHub bonus: capped at +100, can push above core but never above 1000
-// ---------------------------------------------------------------------------
+export function assembleKiteScore(
+    data: AssembleParams,
+    explanation: string
+): KiteScore {
+    const breakdown = calculateFiveFactorScore(data.onChain, data.financial);
 
-export function calculateKiteScore(breakdown: ScoreBreakdown): {
-    total: number;
-    tier: ScoreTier;
-} {
-    const onChain = breakdown.onChain?.score ?? 0;
-    const financial = breakdown.financial?.score ?? 0;
+    // Sum up the 5 factors
+    const coreScore =
+        breakdown.paymentHistory.score +
+        breakdown.utilization.score +
+        breakdown.creditAge.score +
+        breakdown.creditMix.score +
+        breakdown.newCredit.score;
 
-    // Core score: on-chain + financial
-    const coreScore = onChain + financial;
-
-    // GitHub bonus: scale down from 0-300 to 0-100
-    const githubRaw = breakdown.github?.score ?? 0;
-    const githubBonus = Math.floor((githubRaw / 300) * 100);
+    // Add GitHub bonus
+    const githubBonus = data.github ? Math.min(50, Math.floor(data.github.score / 6)) : 0;
 
     const total = Math.min(1000, coreScore + githubBonus);
     const tier = getTier(total);
 
-    return { total, tier };
-}
-
-// ---------------------------------------------------------------------------
-// Partial scoring support
-// ---------------------------------------------------------------------------
-
-export function getConnectedSources(breakdown: ScoreBreakdown): string[] {
-    const sources: string[] = [];
-    if (breakdown.onChain) sources.push("solana_active");
-    if (breakdown.github) sources.push("github_linked");
-    if (breakdown.financial) sources.push("bank_verified");
-    return sources;
-}
-
-export function getMaxPossibleScore(breakdown: ScoreBreakdown): number {
-    let max = 0;
-    if (breakdown.onChain) max += 500;
-    if (breakdown.financial) max += 500;
-    // GitHub bonus is non-essential, don't count it in max
-    return max || 1000;
-}
-
-// ---------------------------------------------------------------------------
-// Full score assembly
-// ---------------------------------------------------------------------------
-
-export function assembleKiteScore(
-    breakdown: ScoreBreakdown,
-    explanation: string
-): KiteScore {
-    const { total, tier } = calculateKiteScore(breakdown);
-
     return {
         total,
         tier,
-        breakdown,
+        breakdown: {
+            onChain: data.onChain,
+            financial: data.financial,
+            github: data.github,
+            fiveFactor: breakdown,
+        } as LegacyScoreBreakdown,
+        githubBonus,
         explanation,
         timestamp: new Date().toISOString(),
     };
+}
+
+function calculateFiveFactorScore(
+    onChain: OnChainScore,
+    financial: FinancialScore | null
+): FiveFactorBreakdown {
+    // -------------------------------------------------------------------------
+    // 1. Payment History (35%) - Max 350 pts
+    // -------------------------------------------------------------------------
+    const onChainPaymentScore = Math.min(175, Math.floor((onChain.breakdown.repaymentHistory / 125) * 175));
+    const bankPaymentScore = financial
+        ? Math.min(175, Math.floor((financial.breakdown.incomeConsistency / 165) * 175))
+        : 0;
+
+    const paymentHistoryScore = onChainPaymentScore + bankPaymentScore;
+
+    // -------------------------------------------------------------------------
+    // 2. Utilization (30%) - Max 300 pts
+    // -------------------------------------------------------------------------
+    const onChainUtilization = Math.min(150, Math.floor((onChain.breakdown.staking / 60) * 150));
+    const bankUtilization = financial
+        ? Math.min(150, Math.floor((financial.breakdown.balanceHealth / 250) * 150))
+        : 0;
+
+    const utilizationScore = onChainUtilization + bankUtilization;
+
+    // -------------------------------------------------------------------------
+    // 3. Credit Age (15%) - Max 150 pts
+    // -------------------------------------------------------------------------
+    const creditAgeScore = Math.min(150, Math.floor((onChain.breakdown.walletAge / 125) * 150));
+
+    // -------------------------------------------------------------------------
+    // 4. Credit Mix (10%) - Max 100 pts
+    // -------------------------------------------------------------------------
+    const creditMixScore = Math.min(100, Math.floor((onChain.breakdown.deFiActivity / 190) * 100));
+
+    // -------------------------------------------------------------------------
+    // 5. New Credit (10%) - Max 100 pts
+    // -------------------------------------------------------------------------
+    const newCreditScore = financial
+        ? Math.min(100, Math.floor((financial.breakdown.verificationBonus / 85) * 100))
+        : 50;
+
+    return {
+        paymentHistory: {
+            score: paymentHistoryScore,
+            details: {
+                onChainRepayments: onChainPaymentScore,
+                bankBillPay: bankPaymentScore
+            }
+        },
+        utilization: {
+            score: utilizationScore,
+            details: {
+                creditUtilization: 0,
+                collateralHealth: onChainUtilization,
+                balanceRatio: bankUtilization
+            }
+        },
+        creditAge: {
+            score: creditAgeScore,
+            details: {
+                walletAge: creditAgeScore,
+                accountAge: 0
+            }
+        },
+        creditMix: {
+            score: creditMixScore,
+            details: {
+                protocolDiversity: creditMixScore,
+                accountDiversity: 0
+            }
+        },
+        newCredit: {
+            score: newCreditScore,
+            details: {
+                recentInquiries: 0,
+                recentOpenings: 0
+            }
+        }
+    };
+}
+
+// Updated tiers to match brand identity
+export function getTier(score: number): ScoreTier {
+    if (score >= 800) return "Elite";   // 800-1000
+    if (score >= 700) return "Strong";  // 700-799
+    if (score >= 600) return "Steady";  // 600-699
+    return "Building";                  // 0-599
 }

@@ -194,7 +194,7 @@ export async function getStakingInfo(
 // Full analysis
 // ---------------------------------------------------------------------------
 
-export async function analyzeWallet(address: string): Promise<OnChainData> {
+export async function analyzeSolanaData(address: string): Promise<OnChainData> {
     const connection = getRpcConnection();
 
     const [walletAgeDays, txs, staking] = await Promise.all([

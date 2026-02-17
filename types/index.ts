@@ -21,6 +21,49 @@ export interface OnChainData {
   stakingDurationDays: number;
 }
 
+// ---------------------------------------------------------------------------
+// FICO-Inspired 5-Factor Score Breakdown (v3)
+// ---------------------------------------------------------------------------
+
+export interface FiveFactorBreakdown {
+  paymentHistory: {
+    score: number; // 0-350 (35%)
+    details: {
+      onChainRepayments: number;
+      bankBillPay: number;
+    };
+  };
+  utilization: {
+    score: number; // 0-300 (30%) - Adjusted from FICO 30% to fit our 1000 scale
+    details: {
+      creditUtilization: number;
+      collateralHealth: number;
+      balanceRatio: number;
+    };
+  };
+  creditAge: {
+    score: number; // 0-150 (15%)
+    details: {
+      walletAge: number;
+      accountAge: number;
+    };
+  };
+  creditMix: {
+    score: number; // 0-100 (10%)
+    details: {
+      protocolDiversity: number;
+      accountDiversity: number;
+    };
+  };
+  newCredit: {
+    score: number; // 0-100 (10%)
+    details: {
+      recentInquiries: number;
+      recentOpenings: number;
+    };
+  };
+}
+
 export interface OnChainScore {
   score: number; // 0-500
   breakdown: {
@@ -82,15 +125,17 @@ export interface FinancialScore {
 // ---------------------------------------------------------------------------
 
 export interface ScoreBreakdown {
-  onChain: OnChainScore | null;
+  onChain: OnChainScore;
   github: GitHubScore | null;
   financial: FinancialScore | null;
+  fiveFactor: FiveFactorBreakdown; // New verified breakdown
 }
 
 export interface KiteScore {
   total: number;        // 0-1000
   tier: ScoreTier;
   breakdown: ScoreBreakdown;
+  githubBonus: number;  // 0-50
   explanation: string;  // Gemini-generated plain-language summary
   timestamp: string;    // ISO 8601
 }
