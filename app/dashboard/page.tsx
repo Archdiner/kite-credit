@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { useWallet } from "@solana/wallet-adapter-react";
@@ -16,7 +16,7 @@ import type { KiteScore, ZKAttestation } from "@/types";
 
 type FlowState = "connect" | "loading" | "results";
 
-export default function DashboardPage() {
+function DashboardContent() {
     const { publicKey, connected, signMessage } = useWallet();
     const { setVisible } = useWalletModal();
     const [flowState, setFlowState] = useState<FlowState>("connect");
@@ -486,5 +486,13 @@ export default function DashboardPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function DashboardPage() {
+    return (
+        <Suspense fallback={null}>
+            <DashboardContent />
+        </Suspense>
     );
 }
