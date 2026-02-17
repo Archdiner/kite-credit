@@ -17,7 +17,7 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: blob:",
-      "connect-src 'self' https://*.quiknode.pro https://api.github.com https://api.reclaimprotocol.org https://generativelanguage.googleapis.com https://cdn.plaid.com https://sandbox.plaid.com https://production.plaid.com",
+      `connect-src 'self' https://*.quiknode.pro https://api.github.com https://api.reclaimprotocol.org https://generativelanguage.googleapis.com https://cdn.plaid.com https://sandbox.plaid.com https://production.plaid.com ${process.env.NEXT_PUBLIC_SUPABASE_URL || ""}`,
       "frame-src 'self' https://cdn.plaid.com",
     ].join("; "),
   },
