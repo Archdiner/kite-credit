@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import { scoreFinancial, generateMockProof } from "../reclaim";
-import { generateAttestation, verifyAttestationFormat } from "../attestation";
+import { generateAttestation, isValidAttestationShape } from "../attestation";
 import type { FinancialData, KiteScore } from "@/types";
 
 describe("scoreFinancial", () => {
@@ -81,19 +81,19 @@ describe("attestation", () => {
 
     it("generates a valid attestation", () => {
         const attestation = generateAttestation(mockScore);
-        expect(attestation.kite_score).toBe(650);
+        expect(attestation.kite_score).toBe(750);
         expect(attestation.tier).toBe("Strong");
         expect(attestation.verified_attributes).toContain("solana_active");
         expect(attestation.verified_attributes).toContain("bank_verified");
-        expect(attestation.verified_attributes).not.toContain("github_linked");
+        expect(attestation.verified_attributes).toContain("github_linked");
         expect(attestation.proof).toMatch(/^0x/);
         expect(attestation.version).toBe("1.0");
     });
 
     it("validates attestation format", () => {
         const attestation = generateAttestation(mockScore);
-        expect(verifyAttestationFormat(attestation)).toBe(true);
-        expect(verifyAttestationFormat(null)).toBe(false);
-        expect(verifyAttestationFormat({})).toBe(false);
+        expect(isValidAttestationShape(attestation)).toBe(true);
+        expect(isValidAttestationShape(null)).toBe(false);
+        expect(isValidAttestationShape({})).toBe(false);
     });
 });

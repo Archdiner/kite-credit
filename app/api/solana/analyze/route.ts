@@ -2,7 +2,7 @@
 // POST /api/solana/analyze
 // ---------------------------------------------------------------------------
 // Accepts a Solana wallet address, analyzes on-chain activity, and returns
-// the on-chain sub-score (0-400) with detailed breakdown.
+// the on-chain sub-score (0-500) with detailed breakdown.
 // ---------------------------------------------------------------------------
 
 import { NextRequest } from "next/server";

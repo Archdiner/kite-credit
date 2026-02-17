@@ -12,6 +12,8 @@ export const config = {
 
 export async function POST(req: NextRequest) {
     try {
+        const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
+
         const formData = await req.formData();
         const file = formData.get("file") as File;
 
@@ -19,18 +21,13 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
         }
 
-        // Runtime size check (4MB)
-        if (file.size > 4 * 1024 * 1024) {
+        // Runtime size check
+        if (file.size > MAX_FILE_SIZE) {
             return NextResponse.json({ error: "File size exceeds 4MB limit" }, { status: 413 });
         }
 
         if (file.type !== "application/pdf") {
             return NextResponse.json({ error: "Only PDF files are supported" }, { status: 400 });
-        }
-
-        // Limit file size to 4MB manually since config might be bypassed or insufficient
-        if (file.size > 4 * 1024 * 1024) {
-            return NextResponse.json({ error: "File size exceeds 4MB limit" }, { status: 413 });
         }
 
         const buffer = await file.arrayBuffer();

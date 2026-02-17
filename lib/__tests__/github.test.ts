@@ -51,8 +51,8 @@ describe("scoreGitHub", () => {
     });
 
     it("values commit consistency", () => {
-        const inactive = scoreGitHub(makeData({ commitsLastYear: 0, contributionStreak: 0 }));
-        const active = scoreGitHub(makeData({ commitsLastYear: 200, contributionStreak: 20 }));
+        const inactive = scoreGitHub(makeData({ recentCommitCount: 0, recentActiveWeeks: 0 }));
+        const active = scoreGitHub(makeData({ recentCommitCount: 200, recentActiveWeeks: 20 }));
 
         expect(active.breakdown.commitConsistency).toBeGreaterThan(
             inactive.breakdown.commitConsistency
@@ -66,9 +66,9 @@ describe("scoreGitHub", () => {
                 publicRepos: 100,
                 totalStars: 10000,
                 followers: 5000,
-                commitsLastYear: 5000,
+                recentCommitCount: 5000,
                 longestRepoAgeDays: 5000,
-                contributionStreak: 52,
+                recentActiveWeeks: 52,
             })
         );
         expect(maxed.score).toBeLessThanOrEqual(300);

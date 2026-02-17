@@ -43,8 +43,9 @@ export async function getRepos(token: string) {
 }
 
 export async function getCommitActivity(token: string, username: string) {
-    // Get contribution events from the past year
-    // We use the events endpoint which gives recent activity
+    // Get recent activity from the /users/:username/events endpoint.
+    // Note: This endpoint returns roughly the past 30 days of activity,
+    // up to the API limit of ~300 events — not a full year.
     const events = await githubFetch(
         `/users/${username}/events?per_page=100`,
         token
@@ -125,7 +126,6 @@ export async function fetchGitHubData(token: string): Promise<GitHubData> {
 // ---------------------------------------------------------------------------
 
 export function scoreGitHub(data: GitHubData): GitHubScore {
-    let score = 0;
 
     // Account age: 0-50
     // 0 days = 0, 90 days = 15, 365 days = 30, 1000+ days = 50
@@ -161,12 +161,21 @@ export function scoreGitHub(data: GitHubData): GitHubScore {
     const repoPortfolio = Math.min(75, repoCount + starScore + repoLongevity);
 
     // Commit consistency: 0-100
-    // Recent commits and weekly streak
-    // Consistency Score (up to 30 points)
-    if (data.recentActiveWeeks > 10) score += 30;
-    else if (data.recentActiveWeeks > 5) score += 15;
-    else if (data.recentActiveWeeks > 0) score += 5;
-    const commitConsistency = Math.min(100, score); // This line needs to be adjusted based on the new scoring logic
+    // Combines commit volume (0-70) with activity streak (0-30)
+    const commitVolume = Math.min(70, Math.floor(
+        data.recentCommitCount <= 0
+            ? 0
+            : data.recentCommitCount < 20
+                ? (data.recentCommitCount / 20) * 25
+                : data.recentCommitCount < 50
+                    ? 25 + ((data.recentCommitCount - 20) / 30) * 25
+                    : 50 + ((Math.min(data.recentCommitCount, 100) - 50) / 50) * 20
+    ));
+    let commitStreak = 0;
+    if (data.recentActiveWeeks > 10) commitStreak = 30;
+    else if (data.recentActiveWeeks > 5) commitStreak = 15;
+    else if (data.recentActiveWeeks > 0) commitStreak = 5;
+    const commitConsistency = Math.min(100, commitVolume + commitStreak);
 
     // Community trust: 0-75
     // Followers as a proxy for community recognition

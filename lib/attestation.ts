@@ -41,10 +41,12 @@ export function generateAttestation(score: KiteScore): ZKAttestation {
 }
 
 // ---------------------------------------------------------------------------
-// Attestation verification (for consumers of the attestation)
+// Attestation shape validation (for consumers of the attestation)
+// Note: This only validates the object shape. It does NOT verify the
+// cryptographic HMAC proof. Use a separate verification step for that.
 // ---------------------------------------------------------------------------
 
-export function verifyAttestationFormat(attestation: unknown): attestation is ZKAttestation {
+export function isValidAttestationShape(attestation: unknown): attestation is ZKAttestation {
     if (!attestation || typeof attestation !== "object") return false;
     const a = attestation as Record<string, unknown>;
 

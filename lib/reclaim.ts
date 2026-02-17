@@ -50,6 +50,7 @@ export async function initiateVerification(
     try {
         // For the hackathon prototype, we use the Reclaim HTTP API
         // to generate a verification request URL
+        const TIMEOUT_MS = 10_000; // 10 second timeout for Reclaim API
         const response = await fetch(
             "https://api.reclaimprotocol.org/api/sdk/start-session",
             {
@@ -63,6 +64,7 @@ export async function initiateVerification(
                     providerId: "banking-balance",
                     callbackUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/reclaim/callback`,
                 }),
+                signal: AbortSignal.timeout(TIMEOUT_MS),
             }
         );
 
@@ -159,8 +161,11 @@ export function generateMockProof(options?: {
 // Proof hash generation
 // ---------------------------------------------------------------------------
 
+// Simple non-cryptographic reference ID for prototype use.
+// This is NOT a zero-knowledge or cryptographic proof hash — it is a
+// quick deterministic identifier derived from proof signatures for
+// deduplication and traceability only.
 function generateProofHash(proof: ReclaimProof): string {
-    // Simple hash from proof signatures for prototype
     const sigStr = proof.signatures?.join("") || "";
     let hash = 0;
     for (let i = 0; i < sigStr.length; i++) {
@@ -168,7 +173,7 @@ function generateProofHash(proof: ReclaimProof): string {
         hash = ((hash << 5) - hash) + char;
         hash |= 0;
     }
-    return `zk_${Math.abs(hash).toString(16)}`;
+    return `ref_${Math.abs(hash).toString(16)}`;
 }
 
 // ---------------------------------------------------------------------------

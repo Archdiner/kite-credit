@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { plaidClient } from "@/lib/plaid";
 import { CountryCode, Products } from "plaid";
+import { randomUUID } from "crypto";
 
-import { rateLimit, rateLimitedResponse, getClientIp } from "@/lib/api-utils";
+import { rateLimit, rateLimitedResponse, getClientIp, successResponse, errorResponse } from "@/lib/api-utils";
 
 export async function POST(req: NextRequest) {
     try {
@@ -14,12 +15,12 @@ export async function POST(req: NextRequest) {
 
         // TODO: Integrate real auth check here (e.g. session/cookie)
         // const session = await auth(); 
-        // if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        // if (!session) return errorResponse("Unauthorized", 401);
 
         const { clientUserId } = await req.json();
 
         const request = {
-            user: { client_user_id: clientUserId || "user-id" },
+            user: { client_user_id: clientUserId || randomUUID() },
             client_name: "Kite Credit",
             products: [Products.Auth, Products.Transactions],
             country_codes: [CountryCode.Us],
@@ -28,9 +29,9 @@ export async function POST(req: NextRequest) {
 
         const response = await plaidClient.linkTokenCreate(request);
 
-        return NextResponse.json({ link_token: response.data.link_token });
+        return successResponse({ link_token: response.data.link_token });
     } catch (error) {
         console.error("Error creating link token:", error);
-        return NextResponse.json({ error: "Failed to create link token" }, { status: 500 });
+        return errorResponse("Failed to create link token", 500);
     }
 }

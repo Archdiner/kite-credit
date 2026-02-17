@@ -130,23 +130,23 @@ export default function CityExplorer() {
                             transition={{ delay: 0.5, duration: 0.8 }}
                             className="text-center mb-12"
                         >
-                            <h2 className="text-6xl md:text-8xl font-bold text-white mb-4 tracking-tighter drop-shadow-lg">
+                            <h2 className="text-4xl md:text-8xl font-bold text-white mb-4 tracking-tighter drop-shadow-lg">
                                 LIFT THE FLOOR
                             </h2>
-                            <div className="h-1 w-32 bg-orange-500 mx-auto rounded-full shadow-[0_0_10px_rgba(249,115,22,0.6)]" />
+                            <div className="h-1 w-20 md:w-32 bg-orange-500 mx-auto rounded-full shadow-[0_0_10px_rgba(249,115,22,0.6)]" />
                         </motion.div>
 
-                        <div className="grid md:grid-cols-2 gap-8 md:gap-16 items-center">
+                        <div className="grid md:grid-cols-2 gap-8 md:gap-16 items-center px-4 md:px-0">
                             <motion.div
                                 initial={{ opacity: 0, x: -50 }}
                                 animate={{ opacity: 1, x: 0 }}
                                 transition={{ delay: 0.8, duration: 0.8 }}
-                                className="bg-slate-900/90 backdrop-blur-md p-8 rounded-xl border-l-4 border-orange-500 shadow-2xl"
+                                className="bg-slate-900/90 backdrop-blur-md p-6 md:p-8 rounded-xl border-l-4 border-orange-500 shadow-2xl"
                             >
-                                <h3 className="text-2xl font-bold text-orange-100 mb-2 uppercase tracking-widest flex items-center gap-3">
+                                <h3 className="text-xl md:text-2xl font-bold text-orange-100 mb-2 uppercase tracking-widest flex items-center gap-3">
                                     <div className="w-2 h-2 rotate-45 bg-orange-500" /> The Problem
                                 </h3>
-                                <p className="text-lg text-white leading-relaxed font-light">
+                                <p className="text-base md:text-lg text-white leading-relaxed font-light">
                                     Credit is a <span className="font-bold text-orange-200">walled garden</span>. When you move, your financial soul stays behind. You start from zero, grounded by borders.
                                 </p>
                             </motion.div>
@@ -155,12 +155,12 @@ export default function CityExplorer() {
                                 initial={{ opacity: 0, x: 50 }}
                                 animate={{ opacity: 1, x: 0 }}
                                 transition={{ delay: 1.0, duration: 0.8 }}
-                                className="bg-white/95 backdrop-blur-md p-8 rounded-xl border-r-4 border-blue-500 text-right shadow-2xl text-slate-900"
+                                className="bg-white/95 backdrop-blur-md p-6 md:p-8 rounded-xl border-r-4 border-blue-500 text-right shadow-2xl text-slate-900"
                             >
-                                <h3 className="text-2xl font-bold text-blue-900 mb-2 uppercase tracking-widest flex items-center justify-end gap-3">
+                                <h3 className="text-xl md:text-2xl font-bold text-blue-900 mb-2 uppercase tracking-widest flex items-center justify-end gap-3">
                                     The Solution <div className="w-2 h-2 rotate-45 bg-blue-500" />
                                 </h3>
-                                <p className="text-lg text-slate-800 leading-relaxed font-medium">
+                                <p className="text-base md:text-lg text-slate-800 leading-relaxed font-medium">
                                     <span className="text-blue-600 font-bold">Portable Equity.</span> A persistent reputation that flies with you. Your history is owned by you, not the bank.
                                 </p>
                             </motion.div>
@@ -175,7 +175,7 @@ export default function CityExplorer() {
                             initial={{ opacity: 0, scale: 0.9 }}
                             animate={{ opacity: 1, scale: 1 }}
                             transition={{ delay: 0.5 }}
-                            className="text-5xl md:text-7xl font-bold text-white mb-8 tracking-tight text-center drop-shadow-xl"
+                            className="text-3xl md:text-7xl font-bold text-white mb-8 tracking-tight text-center drop-shadow-xl"
                         >
                             THE REPUTATION ENGINE
                         </motion.h2>
@@ -184,12 +184,12 @@ export default function CityExplorer() {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ delay: 0.6 }}
-                            className="text-xl text-sky-100 mb-12 font-light tracking-wide"
+                            className="text-base md:text-xl text-sky-100 mb-12 font-light tracking-wide px-4 text-center"
                         >
                             We build your universal credit score using:
                         </motion.p>
 
-                        <div className="grid md:grid-cols-2 gap-8 w-full px-8">
+                        <div className="grid md:grid-cols-2 gap-4 md:gap-8 w-full px-4 md:px-8">
                             {[
                                 {
                                     title: "On-Chain",
@@ -220,12 +220,12 @@ export default function CityExplorer() {
                                     {/* Kite Watermark */}
                                     <div className="absolute -right-6 -bottom-6 w-24 h-24 rotate-12 opacity-5 border-4 border-white pointer-events-none transform group-hover:scale-110 transition-transform" />
 
-                                    <div className="flex items-center gap-4 mb-6">
+                                    <div className="flex items-center gap-4 mb-4 md:mb-6">
                                         <div className={`w-3 h-3 rotate-45 ${item.border.replace('border', 'bg')}`} />
-                                        <h3 className="text-2xl font-bold text-white tracking-wide">{item.title}</h3>
+                                        <h3 className="text-xl md:text-2xl font-bold text-white tracking-wide">{item.title}</h3>
                                     </div>
 
-                                    <p className="text-gray-100 font-light leading-relaxed text-lg min-h-[4rem]">{item.desc}</p>
+                                    <p className="text-gray-100 font-light leading-relaxed text-sm md:text-lg min-h-[4rem]">{item.desc}</p>
 
                                     <div className={`mt-6 h-px w-full bg-gradient-to-r from-transparent via-${item.accent.split('-')[1]}-500/50 to-transparent`} />
                                 </motion.div>
@@ -256,7 +256,7 @@ export default function CityExplorer() {
                             transition={{ delay: 0.5, duration: 1 }}
                             className="relative"
                         >
-                            <h2 className="text-6xl md:text-9xl font-bold text-white mb-8 drop-shadow-2xl">
+                            <h2 className="text-4xl md:text-9xl font-bold text-white mb-8 drop-shadow-2xl">
                                 IDENTITY IN FLIGHT
                             </h2>
                             {/* Decorative line simulating a kite string */}
@@ -273,7 +273,7 @@ export default function CityExplorer() {
                                     className="relative group"
                                 >
                                     <div className="absolute inset-0 bg-white/10 rotate-3 group-hover:rotate-6 transition-transform rounded-sm" />
-                                    <div className="relative px-8 py-3 bg-white text-slate-900 font-bold tracking-wider uppercase text-sm shadow-xl hover:-translate-y-1 transition-transform cursor-default">
+                                    <div className="relative px-4 py-2 md:px-8 md:py-3 bg-white text-slate-900 font-bold tracking-wider uppercase text-xs md:text-sm shadow-xl hover:-translate-y-1 transition-transform cursor-default">
                                         {tag}
                                     </div>
                                     {/* Tiny kite diamond on top */}
@@ -286,7 +286,7 @@ export default function CityExplorer() {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ delay: 2 }}
-                            className="text-2xl text-white font-light max-w-3xl leading-relaxed drop-shadow-md"
+                            className="text-lg md:text-2xl text-white font-light max-w-3xl leading-relaxed drop-shadow-md px-4"
                         >
                             Stop starting from zero. We are building a world where your reputation allows you to <span className="font-bold text-sky-300">land anywhere</span> and <span className="font-bold text-orange-300">immediately take off</span>.
                         </motion.p>
@@ -341,7 +341,7 @@ export default function CityExplorer() {
                                 {Object.values(sections).map((section) => (
                                     <motion.button
                                         key={section.id}
-                                        className="absolute w-20 h-20 -ml-10 -mt-10 rounded-full bg-slate-900/40 backdrop-blur-sm border-2 border-white/20 shadow-[0_0_30px_rgba(255,255,255,0.2)] z-10 flex items-center justify-center group cursor-pointer hover:border-sky-400 transition-colors"
+                                        className="absolute w-12 h-12 -ml-6 -mt-6 md:w-20 md:h-20 md:-ml-10 md:-mt-10 rounded-full bg-slate-900/40 backdrop-blur-sm border-2 border-white/20 shadow-[0_0_30px_rgba(255,255,255,0.2)] z-10 flex items-center justify-center group cursor-pointer hover:border-sky-400 transition-colors"
                                         style={{ left: `${section.x}%`, top: `${section.y}%` }}
                                         initial={{ opacity: 0, scale: 0 }}
                                         animate={{ opacity: 1, scale: 1 }}
@@ -352,10 +352,10 @@ export default function CityExplorer() {
                                         <div className={`absolute inset-0 rounded-full bg-gradient-to-tr ${section.color} opacity-30 group-hover:opacity-60 blur-md transition-opacity`} />
 
                                         {/* Diamond shape for Kite feel */}
-                                        <div className="w-6 h-6 bg-white rotate-45 relative z-10 shadow-lg group-hover:rotate-90 transition-transform duration-500" />
+                                        <div className="w-3 h-3 md:w-6 md:h-6 bg-white rotate-45 relative z-10 shadow-lg group-hover:rotate-90 transition-transform duration-500" />
 
-                                        <div className="absolute top-full mt-5 flex flex-col items-center pointer-events-none">
-                                            <span className="text-white text-sm font-bold tracking-widest uppercase drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] whitespace-nowrap opacity-90 group-hover:opacity-100 transition-opacity bg-black/40 px-3 py-1 rounded-full backdrop-blur-md">
+                                        <div className="absolute top-full mt-3 md:mt-5 flex flex-col items-center pointer-events-none">
+                                            <span className="text-white text-[10px] md:text-sm font-bold tracking-widest uppercase drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] whitespace-nowrap opacity-90 group-hover:opacity-100 transition-opacity bg-black/40 px-2 py-0.5 md:px-3 md:py-1 rounded-full backdrop-blur-md">
                                                 {section.title}
                                             </span>
                                         </div>
@@ -400,7 +400,7 @@ export default function CityExplorer() {
                 {activeSection !== "overview" && (
                     <motion.div
                         key="content-overlay"
-                        className="absolute inset-0 z-20 flex flex-col items-center justify-center p-6 md:p-12 pointer-events-none"
+                        className="absolute inset-0 z-20 flex flex-col items-center justify-center p-4 md:p-12 pointer-events-none"
                         initial={{ opacity: 0, backdropFilter: "blur(0px)" }}
                         animate={{ opacity: 1, backdropFilter: "blur(12px)", transition: { duration: 1 } }}
                         exit={{ opacity: 0, backdropFilter: "blur(0px)", transition: { duration: 0.5 } }}

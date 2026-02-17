@@ -12,13 +12,12 @@
 
 import type {
     KiteScore,
-    ScoreBreakdown as LegacyScoreBreakdown,
+    ScoreBreakdown,
     FiveFactorBreakdown,
     OnChainScore,
     FinancialScore,
     GitHubScore,
     ScoreTier,
-    ScoreBreakdown
 } from "@/types";
 
 interface AssembleParams {
@@ -55,7 +54,7 @@ export function assembleKiteScore(
             financial: data.financial,
             github: data.github,
             fiveFactor: breakdown,
-        } as LegacyScoreBreakdown,
+        } as ScoreBreakdown,
         githubBonus,
         explanation,
         timestamp: new Date().toISOString(),

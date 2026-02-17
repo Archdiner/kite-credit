@@ -37,10 +37,23 @@ function validateParsedStatementData(data: any): ParsedStatementData {
         if (typeof data[field] !== 'number' || isNaN(data[field])) throw new Error(`Invalid number field: ${field}`);
     });
 
+    // Confidence must be between 0 and 1
+    if (data.confidence < 0 || data.confidence > 1) {
+        throw new Error("confidence must be between 0 and 1");
+    }
+
     if (!Array.isArray(data.transactions)) throw new Error("Transactions must be an array");
 
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
     data.transactions.forEach((tx: any, i: number) => {
         if (typeof tx.date !== 'string') throw new Error(`Invalid date at index ${i}`);
+        if (!dateRegex.test(tx.date)) throw new Error(`Invalid transaction date at index ${i}: must be YYYY-MM-DD`);
+        // Verify the parsed date is actually valid (e.g. reject 2024-02-30)
+        const [year, month, day] = tx.date.split('-').map(Number);
+        const parsed = new Date(year, month - 1, day);
+        if (parsed.getFullYear() !== year || parsed.getMonth() !== month - 1 || parsed.getDate() !== day) {
+            throw new Error(`Invalid transaction date at index ${i}: date does not exist`);
+        }
         if (typeof tx.description !== 'string') throw new Error(`Invalid description at index ${i}`);
         if (typeof tx.amount === 'string') tx.amount = parseFloat(tx.amount);
         if (typeof tx.amount !== 'number' || isNaN(tx.amount)) throw new Error(`Invalid amount at index ${i}`);

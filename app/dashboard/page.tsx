@@ -88,8 +88,9 @@ export default function DashboardPage() {
                 setBankConnected(true);
             }
         } catch (err) {
-            console.error(err);
-            setError("Failed to connect bank account");
+            console.error("Plaid exchange error:", err);
+            const message = err instanceof Error ? err.message : "Failed to connect bank account";
+            setError(`Bank connection failed: ${message}. Please try again.`);
         }
     };
 

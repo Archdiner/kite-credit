@@ -14,8 +14,14 @@ if (!process.env.PLAID_CLIENT_ID || !process.env.PLAID_SECRET) {
     throw new Error("Missing PLAID_CLIENT_ID or PLAID_SECRET environment variables");
 }
 
+const ALLOWED_PLAID_ENVS = ["sandbox", "development", "production"] as const;
+const rawPlaidEnv = process.env.PLAID_ENV || "sandbox";
+const plaidEnv = ALLOWED_PLAID_ENVS.includes(rawPlaidEnv as typeof ALLOWED_PLAID_ENVS[number])
+    ? rawPlaidEnv
+    : (() => { console.warn(`[plaid] Invalid PLAID_ENV "${rawPlaidEnv}", falling back to "sandbox"`); return "sandbox"; })();
+
 const configuration = new Configuration({
-    basePath: PlaidEnvironments[process.env.PLAID_ENV || "sandbox"],
+    basePath: PlaidEnvironments[plaidEnv],
     baseOptions: {
         headers: {
             "PLAID-CLIENT-ID": process.env.PLAID_CLIENT_ID,

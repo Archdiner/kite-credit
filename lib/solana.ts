@@ -212,11 +212,10 @@ export async function getStakingInfo(
 export async function analyzeSolanaData(address: string): Promise<OnChainData> {
     const connection = getRpcConnection();
 
-    const [walletAgeDays, txs, staking] = await Promise.all([
-        getWalletAge(connection, address),
-        getTransactionHistory(connection, address, 200),
-        getStakingInfo(connection, address),
-    ]);
+    // Sequential to avoid exhausting RPC rate limits (getWalletAge issues many calls)
+    const walletAgeDays = await getWalletAge(connection, address);
+    const txs = await getTransactionHistory(connection, address, 200);
+    const staking = await getStakingInfo(connection, address);
 
     const deFiInteractions = analyzeDeFiInteractions(txs);
     const totalTransactions = txs.filter((tx) => tx !== null).length;

@@ -146,6 +146,9 @@ export interface KiteScore {
 // ZK Attestation
 // ---------------------------------------------------------------------------
 
+// Note: snake_case field names are intentional here — they match the external
+// ZK attestation protocol wire format. Internal code should use these fields
+// as-is when serializing/deserializing attestations.
 export interface ZKAttestation {
   kite_score: number;
   tier: ScoreTier;

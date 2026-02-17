@@ -46,6 +46,11 @@ export async function POST(req: NextRequest) {
             signature = walletSignature;
         }
 
+        // Validate walletAddress is present and well-formed
+        if (!walletAddress || typeof walletAddress !== "string" || !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(walletAddress)) {
+            return NextResponse.json({ success: false, error: "Missing or invalid wallet address" }, { status: 400 });
+        }
+
         if (!walletSignature || !verifyWalletSignature(walletAddress, nonce, signature)) {
             return NextResponse.json({ success: false, error: "Invalid or missing wallet signature" }, { status: 401 });
         }
