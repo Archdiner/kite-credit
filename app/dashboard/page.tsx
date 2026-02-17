@@ -473,17 +473,7 @@ function DashboardContent() {
                 </main>
 
                 {/* ZK Shield indicator */}
-                <div className="fixed bottom-6 left-6 z-50">
-                    <div className="flex items-center gap-3 bg-slate-900/80 backdrop-blur-md px-4 py-2 rounded-full border border-emerald-500/20 shadow-lg">
-                        <div className="relative w-2 h-2">
-                            <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-                        </div>
-                        <span className="text-[10px] font-bold tracking-widest text-emerald-300/80 uppercase">
-                            ZK-Proof Shield Active
-                        </span>
-                    </div>
-                </div>
+
             </div>
         </div>
     );
