@@ -5,7 +5,6 @@
 // from uploaded PDF bank statements.
 // ---------------------------------------------------------------------------
 
-// @ts-expect-error - Missing type definitions for @google/generative-ai
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
