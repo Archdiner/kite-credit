@@ -26,7 +26,7 @@ graph TD
     end
     
     subgraph Outputs
-        Score[Kite Score (0-1000)]
+        Score["Kite Score (0-1000)"]
         Attest[ZK Attestation]
         Dash[Dashboard UI]
     end
