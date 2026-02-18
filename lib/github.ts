@@ -42,6 +42,11 @@ export async function getRepos(token: string) {
     return repos;
 }
 
+interface GitHubEvent {
+    type: string;
+    created_at: string;
+}
+
 export async function getCommitActivity(token: string, username: string) {
     // Get recent activity from the /users/:username/events endpoint.
     // Note: This endpoint returns roughly the past 30 days of activity,
@@ -49,16 +54,16 @@ export async function getCommitActivity(token: string, username: string) {
     const events = await githubFetch(
         `/users/${username}/events?per_page=100`,
         token
-    );
+    ) as GitHubEvent[];
 
     // Count push events (commits)
     // For now, we'll use a heuristic based on recent activity since we can't easily get full year without GraphQL
     // const commitsLastYear = events.filter((e: any) => e.type === "PushEvent").length;
     // Actually, let's call it "recentCommitCount" (approx last 90 days of events)
-    const recentCommitCount = events.filter((e: any) => e.type === "PushEvent").length;
+    const recentCommitCount = events.filter((e) => e.type === "PushEvent").length;
 
     // Estimate active weeks (rough approximation from event dates)
-    const eventDates = events.map((e: any) => e.created_at.split('T')[0]);
+    const eventDates = events.map((e) => e.created_at.split('T')[0]);
     const uniqueWeeks = new Set(eventDates.map((d: string) => {
         const date = new Date(d);
         const onejan = new Date(date.getFullYear(), 0, 1);

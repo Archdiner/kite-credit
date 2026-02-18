@@ -42,7 +42,7 @@ function getRpcConnection(): Connection {
 
 export async function getWalletAge(connection: Connection, address: string): Promise<number> {
     const pubkey = new PublicKey(address);
-    let oldest: any = null;
+    let oldest: { signature: string; blockTime?: number | null } | null = null;
     let before: string | undefined = undefined;
 
     // Pagination loop to find the oldest transaction

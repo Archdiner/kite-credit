@@ -5,6 +5,7 @@
 // from uploaded PDF bank statements.
 // ---------------------------------------------------------------------------
 
+// @ts-expect-error - Missing type definitions for @google/generative-ai
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
@@ -24,40 +25,46 @@ export interface ParsedStatementData {
     confidence: number; // 0-1 confidence in extraction
 }
 
-function validateParsedStatementData(data: any): ParsedStatementData {
+function validateParsedStatementData(data: unknown): ParsedStatementData {
     if (!data || typeof data !== 'object') throw new Error("Invalid data format");
 
+    const d = data as Record<string, unknown>;
+
     // Basic type checks
-    if (data.accountHolder !== null && typeof data.accountHolder !== 'string') throw new Error("Invalid accountHolder");
-    if (data.bankName !== null && typeof data.bankName !== 'string') throw new Error("Invalid bankName");
+    if (d.accountHolder !== null && typeof d.accountHolder !== 'string') throw new Error("Invalid accountHolder");
+    if (d.bankName !== null && typeof d.bankName !== 'string') throw new Error("Invalid bankName");
 
     // Number checks (coerce if string)
     ['totalDeposits', 'totalWithdrawals', 'endingBalance', 'confidence'].forEach(field => {
-        if (typeof data[field] === 'string') data[field] = parseFloat(data[field]);
-        if (typeof data[field] !== 'number' || isNaN(data[field])) throw new Error(`Invalid number field: ${field}`);
+        if (typeof d[field] === 'string') d[field] = parseFloat(d[field] as string);
+        if (typeof d[field] !== 'number' || isNaN(d[field] as number)) throw new Error(`Invalid number field: ${field}`);
     });
 
     // Confidence must be between 0 and 1
-    if (data.confidence < 0 || data.confidence > 1) {
+    if ((d.confidence as number) < 0 || (d.confidence as number) > 1) {
         throw new Error("confidence must be between 0 and 1");
     }
 
-    if (!Array.isArray(data.transactions)) throw new Error("Transactions must be an array");
+    if (!Array.isArray(d.transactions)) throw new Error("Transactions must be an array");
 
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-    data.transactions.forEach((tx: any, i: number) => {
-        if (typeof tx.date !== 'string') throw new Error(`Invalid date at index ${i}`);
-        if (!dateRegex.test(tx.date)) throw new Error(`Invalid transaction date at index ${i}: must be YYYY-MM-DD`);
+    d.transactions.forEach((tx: unknown, i: number) => {
+        if (!tx || typeof tx !== 'object') throw new Error(`Invalid transaction at index ${i}`);
+        const t = tx as Record<string, unknown>;
+
+        if (typeof t.date !== 'string') throw new Error(`Invalid date at index ${i}`);
+        if (!dateRegex.test(t.date)) throw new Error(`Invalid transaction date at index ${i}: must be YYYY-MM-DD`);
+
         // Verify the parsed date is actually valid (e.g. reject 2024-02-30)
-        const [year, month, day] = tx.date.split('-').map(Number);
+        const [year, month, day] = t.date.split('-').map(Number);
         const parsed = new Date(year, month - 1, day);
         if (parsed.getFullYear() !== year || parsed.getMonth() !== month - 1 || parsed.getDate() !== day) {
             throw new Error(`Invalid transaction date at index ${i}: date does not exist`);
         }
-        if (typeof tx.description !== 'string') throw new Error(`Invalid description at index ${i}`);
-        if (typeof tx.amount === 'string') tx.amount = parseFloat(tx.amount);
-        if (typeof tx.amount !== 'number' || isNaN(tx.amount)) throw new Error(`Invalid amount at index ${i}`);
-        if (!['income', 'expense', 'transfer'].includes(tx.category)) throw new Error(`Invalid category at index ${i}`);
+        if (typeof t.description !== 'string') throw new Error(`Invalid description at index ${i}`);
+        if (typeof t.amount === 'string') t.amount = parseFloat(t.amount);
+        if (typeof t.amount !== 'number' || isNaN(t.amount as number)) throw new Error(`Invalid amount at index ${i}`);
+        if (typeof t.category !== 'string' || !['income', 'expense', 'transfer'].includes(t.category)) throw new Error(`Invalid category at index ${i}`);
     });
 
     return data as ParsedStatementData;
