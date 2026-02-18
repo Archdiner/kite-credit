@@ -20,10 +20,23 @@ import { assembleKiteScore } from "@/lib/scoring";
 import { getConnectedSources } from "@/lib/scoring";
 import { generateAttestation } from "@/lib/attestation";
 import { successResponse, errorResponse } from "@/lib/api-utils";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { getUserFromToken, getConnection, decryptToken, saveScore } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
     try {
+        const ip = req.headers.get("x-forwarded-for") || "unknown";
+        const { success, reset } = await checkRateLimit("score:" + ip, 5, 60);
+
+        if (!success) {
+            return new Response(JSON.stringify({ error: "Too many requests" }), {
+                status: 429,
+                headers: {
+                    "Retry-After": String(reset - Math.floor(Date.now() / 1000)),
+                },
+            });
+        }
+
         const body = await req.json();
         const cookieStore = await cookies();
         let plaidAccessToken = cookieStore.get("plaid_access_token")?.value;

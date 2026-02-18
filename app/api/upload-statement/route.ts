@@ -1,8 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseBankStatement } from "@/lib/statement-parser";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
     try {
+        const ip = req.headers.get("x-forwarded-for") || "unknown";
+        const { success, reset } = await checkRateLimit("upload:" + ip, 3, 60);
+
+        if (!success) {
+            return NextResponse.json(
+                { error: "Too many requests" },
+                {
+                    status: 429,
+                    headers: {
+                        "Retry-After": String(reset - Math.floor(Date.now() / 1000)),
+                    },
+                }
+            );
+        }
+
         const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
 
         const formData = await req.formData();
