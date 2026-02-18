@@ -1,81 +1,167 @@
 # Kite Credit
 
-A persistent, cross-border credit score that follows you wherever you go.
+**A persistent, cross-border credit score that follows you wherever you go.**
+
+---
+
+## Technical Architecture
+
+Overview of how Kite Credit aggregates, verifies, and processes off-chain and on-chain identity data.
+
+```mermaid
+graph TD
+    User((User))
+    
+    subgraph Inputs
+        Sol[Solana Wallet]
+        Bank[Bank Account]
+        Git[GitHub Profile]
+    end
+    
+    subgraph "Kite Credit Core"
+        Ingest[Data Ingestion]
+        ZK[Reclaim Protocol ZK Proofs]
+        Engine[Scoring Engine]
+        AI[Gemini 2.0 Flash]
+    end
+    
+    subgraph Outputs
+        Score[Kite Score (0-1000)]
+        Attest[ZK Attestation]
+        Dash[Dashboard UI]
+    end
+
+    User -->|Connects| Sol
+    User -->|Connects| Bank
+    User -->|Connects| Git
+    
+    Sol -->|RPC Scans| Ingest
+    Git -->|OAuth API| Ingest
+    Bank -->|Zero-Knowledge| ZK --> Ingest
+    
+    Ingest --> Engine
+    Engine -->|Raw Score Factors| AI
+    Engine --> Score
+    AI -->|Natural Language Explainer| Dash
+    Score --> Dash
+    Score -->|Portable Proof| Attest
+```
+
+---
 
 ## The Problem
 
+**Financial identity is trapped in silos.**
+
 Moving across borders erases your financial identity. Years of responsible borrowing, consistent income, and professional reputation vanish the moment you step into a new country. Billions of people are locked out of housing, lending, and basic financial services because their history doesn't travel with them.
+
+Traditional credit bureaus (Equifax, Experian) are:
+1.  **Region-locked:** Your US credit score means nothing in the UK or Singapore.
+2.  **Opaque:** You don't know exactly why your score changed.
+3.  **Slow:** It takes months or years to build a history.
 
 ## What Kite Credit Does
 
-Kite Credit builds a portable credit score by pulling from three distinct sources of reputation:
+Kite Credit builds a **portable, user-owned credit score** by pulling from three distinct sources of reputation:
 
-**On-chain activity.** Your behavior on Solana -- interactions with lending protocols like Kamino and Solend, DAO participation, staking history, and repayment patterns. This accounts for 40% of your score.
+1.  **On-chain activity:** Your behavior on Solana (DeFi repayments, staking, wallet age).
+2.  **Professional history:** Your GitHub profile (commit consistency, repo longevity).
+3.  **Traditional cash flow:** Your bank balances and income consistency, verified through **Zero-Knowledge (ZK) Proofs**.
 
-**Professional history.** Your GitHub profile -- commit frequency, how long you've maintained repositories, contribution patterns, and consistency of work over time. This accounts for 30% of your score.
+These three inputs are weighted and combined into a single Kite Score on a **0-1000** scale.
 
-**Traditional cash flow.** Your bank balances and income consistency, verified through zero-knowledge proofs so that Kite Credit never sees your raw banking credentials or transaction history. This accounts for the remaining 30%.
+---
 
-These three inputs are weighted and combined into a single Kite Score on a 0-1000 scale.
+## Dynamic Scoring Engine
 
-## How Scoring Works
+Unlike static credit models, Kite Credit uses a **Dynamic Signal Strength** model. It adapts based on the *quality* and *amount* of data you provide. 
 
-The score uses a straightforward weighted average:
+### How It Works
 
-| Source | Weight | What It Measures |
-|---|---|---|
-| On-Chain Health | 40% | Wallet age, DeFi repayment history, staking behavior |
-| Professional Trust | 30% | GitHub activity, contribution consistency, repo longevity |
-| Financial Stability | 30% | Verified cash flow via zero-knowledge proofs of bank data |
+The engine calculates a "Signal Strength" (0.0 - 1.0) for each data source to determine how much weight to assign it.
 
-The weighting reflects the conviction that on-chain behavior is the most tamper-resistant signal available, while professional and financial data round out the picture with real-world context.
+*   **Scenario A: Crypto-Native (Solana Only)**
+    *   If you only connect a wallet, your score is **100% based on on-chain activity**.
+    *   *Good for:* Digital nomads, anon devs, DeFi power users.
+*   **Scenario B: Hybrid (Solana + Bank)**
+    *   If you connect both, the engine balances them. If your wallet is new (low signal) but your bank history is deep (high signal), the score will heavily weight the bank data (e.g., 90% Bank / 10% Solana) to give you the fairest score.
+*   **Scenario C: Developer (GitHub Boost)**
+    *   GitHub data acts as a **bonus layer** (up to +50 points). It doesn't penalize you if missing, but rewards professional consistency.
 
-## Privacy Model
+### The 5 Factors (FICO-Aligned)
 
-Kite Credit does not store raw bank transactions, private repository data, or login credentials. The system works on a zero-knowledge-first basis:
+Regardless of the source (Chain vs. Bank), we map data to the standard 5 pillars of creditworthiness:
 
-- Bank data is verified through the Reclaim Protocol, which generates HTTPS-based ZK-proofs. The user proves facts about their finances (like "my average balance exceeds X") without revealing the underlying numbers.
-- GitHub and Solana data are pulled through user-initiated OAuth flows. The user controls what gets scanned and when.
-- The only things stored are the resulting proof and the score itself.
+| Factor | Weight | On-Chain Source | Off-Chain Source (ZK) |
+| :--- | :--- | :--- | :--- |
+| **Payment History** | 35% | DeFi loan repayments, liquidations | Income consistency, bill pay reliability |
+| **Utilization** | 30% | Staking % vs. idle assets, collateral health | Balance health vs. spending |
+| **Credit Age** | 15% | Wallet age (days since first tx) | Account longevity (proxy via income depth) |
+| **Credit Mix** | 10% | Diversity of protocols (Lending, DEX, NFT) | Verification complexity (KYC tier) |
+| **New Credit** | 10% | Recent wallet interactions (Baseline) | Recent verification inquiries |
 
-The output is a ZK-Attestation -- a signed JSON object containing the Kite Score, a list of verified attributes (e.g., "github_linked", "solana_active"), and the cryptographic proof. This attestation can be shared with a landlord, a lender, or anyone else who needs to verify creditworthiness, without exposing the raw data behind it.
+### Visualization
 
-## The Dashboard
+```mermaid
+pie
+    title Base Score Composition
+    "Payment History" : 35
+    "Utilization" : 30
+    "Credit Age" : 15
+    "Credit Mix" : 10
+    "New Credit" : 10
+```
 
-The interface includes a plain-language explanation of your score. Rather than presenting a number with no context, it tells you what moved your score and what you could do to improve it. For example: "Your score rose 15 points because you contributed to 4 open-source repos this week."
+---
 
-The design follows a warm, minimal aesthetic -- more institutional finance than crypto. The intent is to feel like a product you would trust with something as important as your credit history.
+## Privacy Architecture
 
-## Technical Stack
+Kite Credit does **not** store your raw bank transactions, private repository codes, or login credentials.
 
-| Layer | Technology |
-|---|---|
-| Frontend | Next.js, React 19, Tailwind CSS v4 |
-| Animations | Framer Motion, Lenis (smooth scroll) |
-| Blockchain | Solana (mainnet-beta for data reads) |
-| ZK Infrastructure | Reclaim Protocol |
-| Score Explanation | Gemini 2.0 Flash |
-| Storage | In-memory for MVP (Firebase planned for persistence) |
+*   **Bank Data:** Verified via [Reclaim Protocol](https://reclaimprotocol.org/). You generate a ZK-proof on your device (client-side) that asserts facts (e.g., "I have >$5k balance") without sharing the login or statement. Kite only sees the true/false proof.
+*   **Attestations:** The final output is a portable JSON objectsigned by Kite, containing your score and tier (e.g., "Elite"). You can share this object with lenders or landlords without revealing your entire history.
+
+---
+
+## Roadmap & Long-Term Goals
+
+**Mission:** To create the global standard for portable reputation.
+
+### Phase 1: Aggregation (Current)
+*   [x] MVP Dashboard
+*   [x] Solana Wallet Analysis
+*   [x] GitHub Integration
+*   [ ] Full ZK Bank Verification (In Progress)
+
+### Phase 2: Utility (Next 3-6 Months)
+*   **Undercollateralized Lending:** Partner with DeFi protocols to allow "Elite" tier users to borrow against their Kite Score with lower collateral ratios.
+*   **Rent/Housing:** Pilot program with crypto-friendly rentals / Airbnbs to accept Kite Score instead of local credit checks.
+
+### Phase 3: Decentralization (1 Year+)
+*   **On-Chain Identity:** Mint Score as a Soulbound Token (SBT) or Verifiable Credential (VC).
+*   **Governance:** Community DAO decides weighting parameters and new data integrations.
+
+---
+
+## Tech Stack
+
+*   **Frontend:** Next.js (App Router), React, Tailwind CSS, Framer Motion
+*   **Blockchain:** Solana (Web3.js, Helius RPC)
+*   **ZK Proofs:** Reclaim Protocol
+*   **AI:** Google Gemini 2.0 Flash (for natural language score explanations)
+*   **Deployment:** Vercel
 
 ## Running Locally
 
 ```bash
+# Install dependencies
 npm install
+
+# Run development server
 npm run dev
 ```
 
-The app runs at `http://localhost:3000`.
+Open [http://localhost:3000](http://localhost:3000) to view the app.
 
-## Project Status
-
-This is an MVP prototype. The current build includes the landing page and visual identity. The scoring engine, wallet connection flow, GitHub integration, ZK-proof generation, and dashboard are under active development.
-
-## What Comes Next
-
-- Direct credit-line issuance through Kamino, based on Kite Score
-- Native mobile app for proving credit at physical borders
-- Decentralized vouching through a community DAO for credit boosting
-
-## License
-
-Private. All rights reserved.
+---
+*Built by [Asad](https://github.com/archdiner) as part of the Kite Credit initiative.*
