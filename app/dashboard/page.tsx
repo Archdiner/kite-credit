@@ -284,12 +284,12 @@ function DashboardContent() {
                             >
                                 Sign Out
                             </button>
-                            <a
+                            <Link
                                 href="/"
-                                className="text-sm text-white/60 hover:text-white transition-colors tracking-widest uppercase"
+                                className="absolute top-4 left-4 p-2 rounded-full bg-white/5 hover:bg-white/10 text-white/50 hover:text-white transition-colors"
                             >
                                 ← Home
-                            </a>
+                            </Link>
                         </div>
                     </div>
                 </header>

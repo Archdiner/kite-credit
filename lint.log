@@ -1,0 +1,44 @@
+
+> kite-credit@0.1.0 lint
+> eslint
+
+
+/Users/asadr/Desktop/personalProjects/kite-credit/app/api/auth/github/callback/route.ts
+  12:46  warning  'encryptToken' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/asadr/Desktop/personalProjects/kite-credit/app/api/auth/github/route.ts
+  13:27  warning  'request' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/asadr/Desktop/personalProjects/kite-credit/app/auth/page.tsx
+  219:29  error  Do not use an `<a>` element to navigate to `/`. Use `<Link />` from `next/link` instead. See: https://nextjs.org/docs/messages/no-html-link-for-pages  @next/next/no-html-link-for-pages
+
+/Users/asadr/Desktop/personalProjects/kite-credit/app/dashboard/page.tsx
+   12:8   warning  'PlaidLinkButton' is defined but never used                                                                                                            @typescript-eslint/no-unused-vars
+   31:12  warning  'bankConnected' is assigned a value but never used                                                                                                     @typescript-eslint/no-unused-vars
+  192:11  warning  'handlePlaidSuccess' is assigned a value but never used                                                                                                @typescript-eslint/no-unused-vars
+  287:29  error    Do not use an `<a>` element to navigate to `/`. Use `<Link />` from `next/link` instead. See: https://nextjs.org/docs/messages/no-html-link-for-pages  @next/next/no-html-link-for-pages
+
+/Users/asadr/Desktop/personalProjects/kite-credit/app/how-it-works/page.tsx
+  157:36  warning  'Icon' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/asadr/Desktop/personalProjects/kite-credit/components/dashboard/ScoreBreakdownPanel.tsx
+  3:10  warning  'useRef' is defined but never used     @typescript-eslint/no-unused-vars
+  3:18  warning  'useEffect' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/asadr/Desktop/personalProjects/kite-credit/components/dashboard/ScoreRadarChart.tsx
+  37:11  warning  'fullPolyPoints' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/asadr/Desktop/personalProjects/kite-credit/lib/attestation.ts
+  9:41  warning  'ScoreTier' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/asadr/Desktop/personalProjects/kite-credit/lib/auth.ts
+  86:7  warning  'TAG_LENGTH' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/asadr/Desktop/personalProjects/kite-credit/lib/reclaim.ts
+  16:11  warning  'ReclaimVerificationRequest' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/asadr/Desktop/personalProjects/kite-credit/scripts/test-scoring.ts
+  3:40  warning  'GitHubScore' is defined but never used  @typescript-eslint/no-unused-vars
+
+✖ 15 problems (2 errors, 13 warnings)
+

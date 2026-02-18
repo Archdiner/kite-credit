@@ -4,6 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import { useAuth } from "@/components/providers/AuthProvider";
 
 type Mode = "signin" | "signup";
@@ -100,8 +101,8 @@ export default function AuthPage() {
                                     type="button"
                                     onClick={() => { setMode("signin"); setError(null); }}
                                     className={`flex-1 py-2.5 text-sm font-bold tracking-wider uppercase rounded-md transition-all ${mode === "signin"
-                                            ? "bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-lg"
-                                            : "text-white/40 hover:text-white/60"
+                                        ? "bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-lg"
+                                        : "text-white/40 hover:text-white/60"
                                         }`}
                                 >
                                     Sign In
@@ -110,8 +111,8 @@ export default function AuthPage() {
                                     type="button"
                                     onClick={() => { setMode("signup"); setError(null); }}
                                     className={`flex-1 py-2.5 text-sm font-bold tracking-wider uppercase rounded-md transition-all ${mode === "signup"
-                                            ? "bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-lg"
-                                            : "text-white/40 hover:text-white/60"
+                                        ? "bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-lg"
+                                        : "text-white/40 hover:text-white/60"
                                         }`}
                                 >
                                     Sign Up
@@ -216,12 +217,12 @@ export default function AuthPage() {
                             </div>
 
                             {/* Back to Home */}
-                            <a
+                            <Link
                                 href="/"
-                                className="block text-center text-sm text-white/40 hover:text-white/60 transition-colors tracking-widest uppercase"
+                                className="flex items-center gap-2 text-white/50 hover:text-white transition-colors text-sm"
                             >
                                 ← Back to Home
-                            </a>
+                            </Link>
                         </div>
                     </div>
 
