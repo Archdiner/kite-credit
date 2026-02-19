@@ -86,6 +86,23 @@ export async function GET(request: NextRequest) {
                 });
                 const ghUserData = await ghUserRes.json();
 
+                // Check if this GitHub account is already linked to a different user
+                const { createServerSupabaseClient } = await import("@/lib/supabase");
+                const supabase = createServerSupabaseClient();
+                const { data: existingConn } = await supabase
+                    .from("user_connections")
+                    .select("user_id")
+                    .eq("provider", "github")
+                    .eq("provider_user_id", ghUserData.login)
+                    .neq("user_id", user.id)
+                    .limit(1);
+
+                if (existingConn && existingConn.length > 0) {
+                    return NextResponse.redirect(
+                        `${appUrl}/dashboard?error=github_already_linked`
+                    );
+                }
+
                 await upsertConnection(
                     user.id,
                     "github",
