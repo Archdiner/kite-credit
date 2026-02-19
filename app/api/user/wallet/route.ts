@@ -5,7 +5,7 @@
 // ---------------------------------------------------------------------------
 
 import { NextRequest } from "next/server";
-import { getUserFromToken, extractAccessToken, upsertConnection, getConnection } from "@/lib/auth";
+import { getUserFromToken, extractAccessToken, upsertConnection, getConnection, isWalletTakenByOtherUser } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-utils";
 
 export interface StoredWallet {
@@ -59,6 +59,10 @@ export async function POST(request: NextRequest) {
         const alreadyAdded = existing.find(w => w.address === walletAddress);
         if (alreadyAdded) {
             return successResponse({ wallets: existing, message: "Wallet already connected" });
+        }
+
+        if (await isWalletTakenByOtherUser(walletAddress, user.id)) {
+            return errorResponse("This wallet is already associated with another account. Please try a different wallet.", 409);
         }
 
         const isPrimary = existing.length === 0;

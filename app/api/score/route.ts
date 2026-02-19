@@ -43,25 +43,9 @@ export async function POST(req: NextRequest) {
 
         const { walletAddress, walletSignature, includeGithub } = body;
 
-        // 1. Verify Wallet Ownership
-        let nonce = "";
-        let signature = "";
-
-        if (walletSignature && walletSignature.includes(":")) {
-            const parts = walletSignature.split(":");
-            nonce = parts[0].trim();
-            signature = parts[1].trim();
-        } else {
-            signature = walletSignature;
-        }
-
         // Validate walletAddress is present and well-formed (base58, 32-44 chars)
         if (!walletAddress || typeof walletAddress !== "string" || !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(walletAddress)) {
             return errorResponse("Missing or invalid wallet address", 400);
-        }
-
-        if (!walletSignature || !verifyWalletSignature(walletAddress, nonce, signature)) {
-            return errorResponse("Invalid or missing wallet signature", 401);
         }
 
         // Try to get authenticated user for DB persistence
@@ -71,6 +55,24 @@ export async function POST(req: NextRequest) {
             const user = await getUserFromToken(sbToken);
             if (user) {
                 userId = user.id;
+
+                // Verify wallet ownership via signature when provided (desktop).
+                // Authenticated mobile users submit an address without a signature;
+                // they are still rate-limited and tied to their session.
+                if (walletSignature) {
+                    let nonce = "";
+                    let signature = "";
+                    if (walletSignature.includes(":")) {
+                        const parts = walletSignature.split(":");
+                        nonce = parts[0].trim();
+                        signature = parts[1].trim();
+                    } else {
+                        signature = walletSignature;
+                    }
+                    if (!verifyWalletSignature(walletAddress, nonce, signature)) {
+                        return errorResponse("Invalid wallet signature", 401);
+                    }
+                }
 
                 // CHECK CACHE: If the user has a recent score (last 5 mins), return it
                 // This prevents score fluctuation due to RPC instability on refresh
@@ -110,6 +112,10 @@ export async function POST(req: NextRequest) {
             }
         } catch {
             // Non-fatal: continue without DB context
+        }
+
+        if (!userId && !walletSignature) {
+            return errorResponse("Authentication or wallet signature required", 401);
         }
 
         // 2. Fetch & Score On-Chain Data

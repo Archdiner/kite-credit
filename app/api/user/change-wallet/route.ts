@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server";
-import { getUserFromToken, extractAccessToken, upsertConnection } from "@/lib/auth";
+import { getUserFromToken, extractAccessToken, upsertConnection, isWalletTakenByOtherUser } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-utils";
-import { createServerSupabaseClient } from "@/lib/supabase";
 
 export async function POST(request: NextRequest) {
     try {
@@ -19,23 +18,8 @@ export async function POST(request: NextRequest) {
             return errorResponse("Invalid Solana wallet address", 400);
         }
 
-        const supabase = createServerSupabaseClient();
-        const { data: existingConnections } = await supabase
-            .from("user_connections")
-            .select("user_id, provider_user_id, metadata")
-            .eq("provider", "solana_wallet")
-            .neq("user_id", user.id);
-
-        if (existingConnections) {
-            for (const conn of existingConnections) {
-                if (conn.provider_user_id === walletAddress) {
-                    return errorResponse("This wallet is already connected to another account.", 409);
-                }
-                const wallets = conn.metadata?.wallets;
-                if (Array.isArray(wallets) && wallets.some((w: { address: string }) => w.address === walletAddress)) {
-                    return errorResponse("This wallet is already connected to another account.", 409);
-                }
-            }
+        if (await isWalletTakenByOtherUser(walletAddress, user.id)) {
+            return errorResponse("This wallet is already associated with another account. Please try a different wallet.", 409);
         }
 
         const newWallet = {

@@ -91,8 +91,7 @@ export default function ScoreDisplay({ score, onModeChange, githubOnly = false }
                 </div>
             )}
 
-            <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12">
-                {/* Score Ring */}
+            <div className="flex items-center justify-center">
                 <div className="relative flex-shrink-0">
                     <div
                         className="absolute inset-0 rounded-full blur-3xl transition-opacity duration-1000"
@@ -138,37 +137,6 @@ export default function ScoreDisplay({ score, onModeChange, githubOnly = false }
                         )}
                     </div>
                 </div>
-
-                {/* Score Info */}
-                <motion.div
-                    key={mode}
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="text-center md:text-left"
-                >
-                    <p className="text-[10px] text-white/40 font-mono tracking-[0.3em] uppercase mb-2">
-                        {mode === "dev" ? "Reputation Tier" : "Credit Tier"}
-                    </p>
-                    <div className="flex items-center gap-3 mb-5 justify-center md:justify-start overflow-visible">
-                        <div className={`w-3.5 h-3.5 rotate-45 bg-gradient-to-br ${config.gradient} flex-shrink-0`} />
-                        <h2 className="text-2xl md:text-3xl font-black text-white tracking-tight uppercase whitespace-nowrap">
-                            {config.label}
-                        </h2>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2 justify-center md:justify-start">
-                        {mode === "crypto" && score.breakdown.onChain && (
-                            <SourceBadge label="On-Chain" color="sky" />
-                        )}
-                        {mode === "crypto" && score.breakdown.financial && (
-                            <SourceBadge label="Financial" color="orange" />
-                        )}
-                        {mode === "dev" && hasGitHub && (
-                            <SourceBadge label="GitHub Verified" color="indigo" />
-                        )}
-                    </div>
-                </motion.div>
             </div>
         </div>
     );
@@ -200,15 +168,3 @@ function TabButton({
     );
 }
 
-function SourceBadge({ label, color }: { label: string; color: string }) {
-    const colorMap: Record<string, string> = {
-        sky: "bg-sky-500/10 border-sky-400/20 text-sky-300",
-        orange: "bg-orange-500/10 border-orange-400/20 text-orange-300",
-        indigo: "bg-indigo-500/10 border-indigo-400/20 text-indigo-300",
-    };
-    return (
-        <span className={`px-2.5 py-1 border rounded-full text-[10px] font-mono tracking-wider ${colorMap[color] || colorMap.sky}`}>
-            {label} ✓
-        </span>
-    );
-}

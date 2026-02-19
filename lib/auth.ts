@@ -173,6 +173,40 @@ export async function upsertConnection(
 }
 
 /**
+ * Check if a wallet address is already connected to a different user.
+ * Searches both `provider_user_id` (primary) and `metadata.wallets` (secondary).
+ * Returns true if the wallet belongs to another account.
+ */
+export async function isWalletTakenByOtherUser(
+    walletAddress: string,
+    currentUserId: string
+): Promise<boolean> {
+    const supabase = adminClient();
+
+    const { data: connections } = await supabase
+        .from("user_connections")
+        .select("user_id, provider_user_id, metadata")
+        .eq("provider", "solana_wallet")
+        .neq("user_id", currentUserId);
+
+    if (!connections) return false;
+
+    for (const conn of connections) {
+        if (conn.provider_user_id === walletAddress) return true;
+
+        const wallets = conn.metadata?.wallets;
+        if (
+            Array.isArray(wallets) &&
+            wallets.some((w: { address: string }) => w.address === walletAddress)
+        ) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
  * Get a user's connection for a given provider.
  */
 export async function getConnection(userId: string, provider: string) {

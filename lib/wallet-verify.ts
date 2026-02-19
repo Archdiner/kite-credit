@@ -8,6 +8,7 @@
 
 import { PublicKey } from "@solana/web3.js";
 import nacl from "tweetnacl";
+import bs58 from "bs58";
 
 // ---------------------------------------------------------------------------
 // Nonce generation + message construction
@@ -29,15 +30,26 @@ export function buildSignMessage(address: string, nonce: string): string {
 // Signature verification
 // ---------------------------------------------------------------------------
 
+function decodeSignature(encoded: string): Uint8Array {
+    // Phantom deep links return base58; the desktop adapter returns base64.
+    // Try base58 first (it's stricter), fall back to base64.
+    try {
+        const decoded = bs58.decode(encoded);
+        if (decoded.length === 64) return decoded;
+    } catch { /* not base58 */ }
+
+    return new Uint8Array(Buffer.from(encoded, "base64"));
+}
+
 export function verifyWalletSignature(
     address: string,
     nonce: string,
-    signatureBase64: string
+    signatureEncoded: string,
 ): boolean {
     try {
         const message = buildSignMessage(address, nonce);
         const messageBytes = new TextEncoder().encode(message);
-        const signatureBytes = Buffer.from(signatureBase64, "base64");
+        const signatureBytes = decodeSignature(signatureEncoded);
         const publicKeyBytes = new PublicKey(address).toBytes();
 
         return nacl.sign.detached.verify(messageBytes, signatureBytes, publicKeyBytes);

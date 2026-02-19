@@ -7,20 +7,34 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { useMobileWallet } from "@/components/providers/WalletProvider";
+import {
+    createSession,
+    serializeSession,
+    buildConnectUrl,
+} from "@/lib/phantom-deeplink";
 import ScoreDisplay, { type ViewMode } from "@/components/dashboard/ScoreDisplay";
 import ScoreBreakdownPanel from "@/components/dashboard/ScoreBreakdownPanel";
-import PlaidLinkButton from "@/components/dashboard/PlaidLinkButton";
 import AttestationCard from "@/components/dashboard/AttestationCard";
 import ScoreRadarChart from "@/components/dashboard/ScoreRadarChart";
 import ShareScoreCard from "@/components/dashboard/ShareScoreCard";
 import Link from "next/link";
 import type { KiteScore, ZKAttestation } from "@/types";
 
+const SOLANA_ADDRESS_REGEX = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
 type FlowState = "connect" | "loading" | "results";
 
 function DashboardContent() {
     const { publicKey, connected, signMessage, wallet, connect, connecting, disconnect } = useWallet();
     const { setVisible } = useWalletModal();
+    const {
+        isMobile,
+        mobileWalletAddress,
+        setMobileWalletAddress,
+        mobileWalletSignature,
+        setMobileWalletSignature,
+    } = useMobileWallet();
     const { user, loading: authLoading, signOut, accessToken } = useAuth();
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -29,13 +43,20 @@ function DashboardContent() {
     const [kiteScore, setKiteScore] = useState<KiteScore | null>(null);
     const [attestation, setAttestation] = useState<ZKAttestation | null>(null);
     const [githubUser, setGithubUser] = useState<string | null>(null);
-    const [bankConnected, setBankConnected] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [restoringData, setRestoringData] = useState(true);
     const [viewMode, setViewMode] = useState<ViewMode>("crypto");
     const [changingWallet, setChangingWallet] = useState(false);
     const [changingGitHub, setChangingGitHub] = useState(false);
     const [isGithubOnlyScore, setIsGithubOnlyScore] = useState(false);
+    const [mobileAddressInput, setMobileAddressInput] = useState("");
+    const [mobileAddressError, setMobileAddressError] = useState<string | null>(null);
+    const [showManualInput, setShowManualInput] = useState(false);
+
+    const effectiveWalletAddress = isMobile
+        ? mobileWalletAddress
+        : publicKey?.toBase58() ?? null;
+    const isWalletConnected = isMobile ? !!mobileWalletAddress : connected;
 
     // Auth guard: redirect to /auth if not logged in
     useEffect(() => {
@@ -63,15 +84,11 @@ function DashboardContent() {
 
                     if (connections) {
                         for (const conn of connections) {
-                            switch (conn.provider) {
-                                case "github":
-                                    if (conn.provider_user_id) {
-                                        setGithubUser(conn.provider_user_id);
-                                    }
-                                    break;
-                                case "plaid":
-                                    setBankConnected(true);
-                                    break;
+                            if (conn.provider === "github" && conn.provider_user_id) {
+                                setGithubUser(conn.provider_user_id);
+                            }
+                            if (conn.provider === "solana_wallet" && isMobile && conn.provider_user_id) {
+                                setMobileWalletAddress(conn.provider_user_id);
                             }
                         }
                     }
@@ -130,14 +147,50 @@ function DashboardContent() {
         }
     }, [searchParams, githubUser]);
 
+    // Handle Phantom deep link callback (mobile)
     useEffect(() => {
-        if (wallet && !connected && !connecting) {
-            connect().catch(() => { /* Will be caught by onError in WalletProvider */ });
-        }
-    }, [wallet, connected, connecting, connect]);
+        const phantomConnected = searchParams.get("phantom_connected");
+        const phantomError = searchParams.get("phantom_error");
 
-    // Persist wallet connection when it changes
+        if (phantomError) {
+            setError(decodeURIComponent(phantomError));
+            router.replace("/dashboard", { scroll: false });
+        }
+
+        if (phantomConnected && mobileWalletAddress && accessToken) {
+            const endpoint = changingWallet ? "/api/user/change-wallet" : "/api/user/wallet";
+            fetch(endpoint, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${accessToken}`,
+                },
+                body: JSON.stringify({ walletAddress: mobileWalletAddress }),
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success && data.error) {
+                        setError(data.error);
+                        setMobileWalletAddress(null);
+                        setMobileWalletSignature(null);
+                    }
+                    setChangingWallet(false);
+                })
+                .catch(() => setChangingWallet(false));
+
+            router.replace("/dashboard", { scroll: false });
+        }
+    }, [searchParams, mobileWalletAddress, accessToken]);
+
     useEffect(() => {
+        if (!isMobile && wallet && !connected && !connecting) {
+            connect().catch(() => {});
+        }
+    }, [isMobile, wallet, connected, connecting, connect]);
+
+    // Persist wallet connection when it changes (desktop only — mobile persists via handleMobileWalletSubmit)
+    useEffect(() => {
+        if (isMobile) return;
         if (connected && publicKey && accessToken) {
             const endpoint = changingWallet ? "/api/user/change-wallet" : "/api/user/wallet";
             fetch(endpoint, {
@@ -160,32 +213,34 @@ function DashboardContent() {
                     setChangingWallet(false);
                 });
         }
-    }, [connected, publicKey, accessToken]);
+    }, [isMobile, connected, publicKey, accessToken]);
 
     const handleCalculateScore = useCallback(async () => {
-        if (!publicKey) return;
+        if (!effectiveWalletAddress) return;
         setError(null);
         setFlowState("loading");
         setIsGithubOnlyScore(false);
 
         try {
-            let signature = "";
-            let nonce = "";
-            if (signMessage) {
-                nonce = crypto.randomUUID();
+            let walletSig = "";
+
+            if (isMobile && mobileWalletSignature) {
+                walletSig = `${mobileWalletSignature.nonce}:${mobileWalletSignature.signature}`;
+            } else if (!isMobile && signMessage && publicKey) {
+                const nonce = crypto.randomUUID();
                 const message = `Kite Credit: verify ownership of ${publicKey.toBase58()} | nonce: ${nonce}`;
                 const messageBytes = new TextEncoder().encode(message);
                 const signatureBytes = await signMessage(messageBytes);
                 const base64Signature = btoa(String.fromCharCode(...new Uint8Array(signatureBytes)));
-                signature = `${nonce}:${base64Signature}`;
+                walletSig = `${nonce}:${base64Signature}`;
             }
 
             const res = await fetch("/api/score", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    walletAddress: publicKey.toBase58(),
-                    walletSignature: signature,
+                    walletAddress: effectiveWalletAddress,
+                    walletSignature: walletSig,
                     includeGithub: !!githubUser,
                 }),
             });
@@ -200,7 +255,7 @@ function DashboardContent() {
             setError(err instanceof Error ? err.message : "Something went wrong");
             setFlowState("connect");
         }
-    }, [publicKey, signMessage, githubUser]);
+    }, [effectiveWalletAddress, isMobile, mobileWalletSignature, publicKey, signMessage, githubUser]);
 
     const handleCalculateDevScore = useCallback(async () => {
         if (!githubUser) return;
@@ -233,12 +288,70 @@ function DashboardContent() {
         window.location.href = "/api/auth/github";
     };
 
+    const handlePhantomConnect = useCallback(() => {
+        const session = createSession();
+        sessionStorage.setItem("phantom_deeplink_session", serializeSession(session));
+
+        const appUrl = window.location.origin;
+        const redirectUrl = `${appUrl}/dashboard/phantom-callback`;
+        const cluster = (process.env.NEXT_PUBLIC_SOLANA_NETWORK || "mainnet-beta") as "mainnet-beta" | "testnet" | "devnet";
+        const connectUrl = buildConnectUrl(session, redirectUrl, appUrl, cluster);
+
+        window.location.href = connectUrl;
+    }, []);
+
+    const handleMobileWalletSubmit = useCallback(async () => {
+        const address = mobileAddressInput.trim();
+        setMobileAddressError(null);
+
+        if (!address) {
+            setMobileAddressError("Please enter a wallet address");
+            return;
+        }
+        if (!SOLANA_ADDRESS_REGEX.test(address)) {
+            setMobileAddressError("Invalid Solana wallet address");
+            return;
+        }
+
+        setMobileWalletAddress(address);
+        setMobileAddressInput("");
+
+        if (accessToken) {
+            try {
+                const endpoint = changingWallet ? "/api/user/change-wallet" : "/api/user/wallet";
+                const res = await fetch(endpoint, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${accessToken}`,
+                    },
+                    body: JSON.stringify({ walletAddress: address }),
+                });
+                const data = await res.json();
+                if (!data.success && data.error) {
+                    setError(data.error);
+                    setMobileWalletAddress(null);
+                }
+            } catch {
+                setError("Failed to save wallet. Please try again.");
+                setMobileWalletAddress(null);
+            }
+        }
+        setChangingWallet(false);
+    }, [mobileAddressInput, accessToken, changingWallet, setMobileWalletAddress]);
+
     const handleChangeWallet = async () => {
         setChangingWallet(true);
         setError(null);
+        if (isMobile) {
+            setMobileWalletAddress(null);
+            setMobileWalletSignature(null);
+            setMobileAddressInput("");
+            setShowManualInput(false);
+            return;
+        }
         try {
             await disconnect();
-            // Small delay to let the wallet adapter clean up before showing modal
             setTimeout(() => setVisible(true), 200);
         } catch {
             setError("Failed to disconnect wallet. Please try again.");
@@ -271,36 +384,13 @@ function DashboardContent() {
         }
     };
 
-    const handlePlaidSuccess = async (publicToken: string) => {
-        try {
-            if (accessToken) {
-                document.cookie = `sb-access-token=${accessToken}; path=/; max-age=600; samesite=lax`;
-            }
-
-            const res = await fetch("/api/plaid/exchange", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ public_token: publicToken }),
-            });
-            const data = await res.json();
-
-            if (data.success) {
-                setBankConnected(true);
-            }
-        } catch (err) {
-            console.error("Plaid exchange error:", err);
-            const message = err instanceof Error ? err.message : "Failed to connect bank account";
-            setError(`Bank connection failed: ${message}. Please try again.`);
-        }
-    };
-
     const handleSignOut = async () => {
         await signOut();
         router.push("/auth");
     };
 
-    const canCalculateFullScore = connected;
-    const canCalculateDevScore = !!githubUser && !connected;
+    const canCalculateFullScore = isWalletConnected;
+    const canCalculateDevScore = !!githubUser && !isWalletConnected;
     const canCalculateAnyScore = canCalculateFullScore || canCalculateDevScore;
 
     if (authLoading || !user || restoringData) {
@@ -423,12 +513,14 @@ function DashboardContent() {
                                             <p className="text-sm text-white/60 mb-6 leading-relaxed">
                                                 Wallet age, DeFi history, staking activity, and transaction patterns.
                                             </p>
-                                            {connected ? (
+                                            {isWalletConnected ? (
                                                 <div className="space-y-2">
                                                     <div className="flex items-center gap-2 bg-sky-500/10 border border-sky-400/30 rounded-lg px-4 py-3">
                                                         <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                                                         <span className="text-sm text-sky-200 font-mono truncate">
-                                                            {publicKey?.toBase58().slice(0, 8)}...{publicKey?.toBase58().slice(-6)}
+                                                            {effectiveWalletAddress
+                                                                ? `${effectiveWalletAddress.slice(0, 8)}...${effectiveWalletAddress.slice(-6)}`
+                                                                : ""}
                                                         </span>
                                                     </div>
                                                     <button
@@ -439,12 +531,67 @@ function DashboardContent() {
                                                         {changingWallet ? "Switching..." : "Connect Different Wallet"}
                                                     </button>
                                                 </div>
+                                            ) : isMobile ? (
+                                                <div className="space-y-3">
+                                                    <button
+                                                        onClick={handlePhantomConnect}
+                                                        className="w-full py-3 bg-gradient-to-r from-sky-500 to-blue-600 text-white font-bold tracking-wider uppercase text-sm rounded-lg active:scale-[0.98] transition-all shadow-lg flex items-center justify-center gap-2"
+                                                    >
+                                                        <svg width="18" height="18" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                            <rect width="128" height="128" rx="26" fill="url(#phantom-grad)"/>
+                                                            <path d="M110.584 64.914H99.142C99.142 41.066 79.8 21.724 55.952 21.724C32.516 21.724 13.44 40.378 12.82 63.658C12.186 87.49 33.038 108.276 56.87 108.276H60.064C81.054 108.276 110.584 87.49 110.584 64.914Z" fill="url(#phantom-grad2)"/>
+                                                            <path d="M86.354 64.914C86.354 68.108 83.71 70.752 80.516 70.752C77.322 70.752 74.678 68.108 74.678 64.914C74.678 61.72 77.322 59.076 80.516 59.076C83.71 59.076 86.354 61.72 86.354 64.914Z" fill="white"/>
+                                                            <path d="M67.354 64.914C67.354 68.108 64.71 70.752 61.516 70.752C58.322 70.752 55.678 68.108 55.678 64.914C55.678 61.72 58.322 59.076 61.516 59.076C64.71 59.076 67.354 61.72 67.354 64.914Z" fill="white"/>
+                                                            <defs>
+                                                                <linearGradient id="phantom-grad" x1="64" y1="0" x2="64" y2="128" gradientUnits="userSpaceOnUse"><stop stopColor="#534BB1"/><stop offset="1" stopColor="#551BF9"/></linearGradient>
+                                                                <linearGradient id="phantom-grad2" x1="61.702" y1="21.724" x2="61.702" y2="108.276" gradientUnits="userSpaceOnUse"><stop stopColor="#534BB1"/><stop offset="1" stopColor="#551BF9"/></linearGradient>
+                                                            </defs>
+                                                        </svg>
+                                                        Connect with Phantom
+                                                    </button>
+
+                                                    {!showManualInput ? (
+                                                        <button
+                                                            onClick={() => setShowManualInput(true)}
+                                                            className="w-full py-2 text-[11px] text-sky-300/50 hover:text-sky-200 font-mono tracking-wider uppercase border border-sky-500/10 hover:border-sky-400/20 rounded-lg transition-all"
+                                                        >
+                                                            Or enter address manually
+                                                        </button>
+                                                    ) : (
+                                                        <>
+                                                            <input
+                                                                type="text"
+                                                                value={mobileAddressInput}
+                                                                onChange={(e) => {
+                                                                    setMobileAddressInput(e.target.value);
+                                                                    setMobileAddressError(null);
+                                                                }}
+                                                                placeholder="Paste your Solana address"
+                                                                className="w-full px-4 py-3 bg-white/5 border border-sky-500/20 rounded-lg text-white text-sm placeholder-white/30 focus:outline-none focus:border-sky-400/50 focus:ring-1 focus:ring-sky-400/30 transition-all font-mono"
+                                                                autoComplete="off"
+                                                                autoCorrect="off"
+                                                                spellCheck={false}
+                                                            />
+                                                            {mobileAddressError && (
+                                                                <p className="text-xs text-red-400">{mobileAddressError}</p>
+                                                            )}
+                                                            <button
+                                                                onClick={handleMobileWalletSubmit}
+                                                                disabled={!mobileAddressInput.trim()}
+                                                                className="w-full py-3 bg-white/10 border border-sky-500/20 text-white font-bold tracking-wider uppercase text-sm rounded-lg active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                                            >
+                                                                Submit Address
+                                                            </button>
+                                                            <p className="text-[10px] text-amber-300/50 text-center leading-relaxed">
+                                                                Manual addresses cannot be verified for ownership. Use Phantom for a verified connection.
+                                                            </p>
+                                                        </>
+                                                    )}
+                                                </div>
                                             ) : (
                                                 <button
                                                     className="w-full py-3.5 sm:py-3 bg-gradient-to-r from-sky-500 to-blue-600 text-white font-bold tracking-wider uppercase text-sm rounded-lg hover:from-sky-400 hover:to-blue-500 active:scale-[0.98] transition-all shadow-lg"
-                                                    onClick={() => {
-                                                        setVisible(true);
-                                                    }}
+                                                    onClick={() => setVisible(true)}
                                                 >
                                                     Connect Wallet
                                                 </button>
@@ -546,7 +693,11 @@ function DashboardContent() {
                                                 </button>
 
                                                 <p className="mt-6 text-xs text-white/30 font-mono tracking-wider">
-                                                    Your wallet will sign a verification message to prove ownership
+                                                    {isMobile && mobileWalletSignature
+                                                        ? "Wallet verified via Phantom. Ready to calculate."
+                                                        : isMobile
+                                                        ? "Score is calculated from public on-chain activity"
+                                                        : "Your wallet will sign a verification message to prove ownership"}
                                                 </p>
                                             </>
                                         )}
