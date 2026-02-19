@@ -105,3 +105,23 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
+
+-- 4. Shared scores (short-URL share links)
+create table if not exists public.shared_scores (
+  id text primary key,
+  data jsonb not null,
+  data_hash text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.shared_scores enable row level security;
+
+create policy "Anyone can read shared scores"
+  on public.shared_scores for select
+  using (true);
+
+create unique index if not exists idx_shared_scores_data_hash
+  on public.shared_scores(data_hash);
+
+create index if not exists idx_shared_scores_created_at
+  on public.shared_scores(created_at);

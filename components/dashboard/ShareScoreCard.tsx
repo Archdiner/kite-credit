@@ -22,6 +22,7 @@ interface Props {
 
 export default function ShareScoreCard({ score, attestation, activeMode = "crypto" }: Props) {
     const [copied, setCopied] = useState(false);
+    const [sharing, setSharing] = useState(false);
 
     const hasGitHub = !!score.breakdown.github;
 
@@ -39,7 +40,7 @@ export default function ShareScoreCard({ score, attestation, activeMode = "crypt
     const displayTier = getTier(displayScore);
 
     const buildShareData = useCallback(() => {
-        const data: Record<string, unknown> = {
+        return {
             cryptoScore,
             cryptoTier: getTier(cryptoScore),
             devScore: hasGitHub ? devScoreNormalized : null,
@@ -50,7 +51,6 @@ export default function ShareScoreCard({ score, attestation, activeMode = "crypt
             attestationDate: attestation?.issued_at ?? "",
             verifiedAttrs: attestation?.verified_attributes ?? [],
         };
-        return btoa(JSON.stringify(data));
     }, [cryptoScore, devScoreNormalized, devScoreRaw, hasGitHub, score.breakdown.onChain.score, attestation]);
 
     const copyToClipboard = useCallback(async (text: string) => {
@@ -67,23 +67,45 @@ export default function ShareScoreCard({ score, attestation, activeMode = "crypt
     }, []);
 
     const handleShareLink = useCallback(async () => {
-        const encoded = buildShareData();
-        const url = `${window.location.origin}/share?d=${encoded}`;
+        if (sharing) return;
+        setSharing(true);
 
-        if (navigator.share) {
-            try {
-                await navigator.share({
-                    title: `My Kite ${modeLabel} Score: ${displayScore}/1000`,
-                    url,
-                });
-                return;
-            } catch { /* User cancelled */ }
+        try {
+            const res = await fetch("/api/share", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(buildShareData()),
+            });
+
+            if (!res.ok) throw new Error("Failed to create share link");
+
+            const { id } = await res.json();
+            const url = `${window.location.origin}/s/${id}`;
+
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: `My Kite ${modeLabel} Score: ${displayScore}/1000`,
+                        url,
+                    });
+                    return;
+                } catch { /* User cancelled */ }
+            }
+
+            await copyToClipboard(url);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2500);
+        } catch {
+            const data = buildShareData();
+            const encoded = btoa(JSON.stringify(data));
+            const url = `${window.location.origin}/share?d=${encoded}`;
+            await copyToClipboard(url);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2500);
+        } finally {
+            setSharing(false);
         }
-
-        await copyToClipboard(url);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2500);
-    }, [buildShareData, modeLabel, displayScore, copyToClipboard]);
+    }, [sharing, buildShareData, modeLabel, displayScore, copyToClipboard]);
 
     return (
         <motion.div
@@ -161,9 +183,10 @@ export default function ShareScoreCard({ score, attestation, activeMode = "crypt
             {/* Share button */}
             <button
                 onClick={handleShareLink}
-                className="w-full mt-3 py-3 bg-gradient-to-r from-emerald-500/20 to-sky-500/20 border border-emerald-400/20 text-emerald-200/80 font-bold tracking-[0.15em] uppercase text-[11px] rounded-lg hover:from-emerald-500/30 hover:to-sky-500/30 transition-all"
+                disabled={sharing}
+                className="w-full mt-3 py-3 bg-gradient-to-r from-emerald-500/20 to-sky-500/20 border border-emerald-400/20 text-emerald-200/80 font-bold tracking-[0.15em] uppercase text-[11px] rounded-lg hover:from-emerald-500/30 hover:to-sky-500/30 transition-all disabled:opacity-50"
             >
-                {copied ? "✓ Link Copied!" : "Share Score"}
+                {sharing ? "Creating Link…" : copied ? "✓ Link Copied!" : "Share Score"}
             </button>
         </motion.div>
     );

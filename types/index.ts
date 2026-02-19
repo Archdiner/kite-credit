@@ -186,3 +186,19 @@ export interface ApiResponse<T> {
   data?: T;
   error?: string;
 }
+
+// ---------------------------------------------------------------------------
+// Share page data (stored in shared_scores table)
+// ---------------------------------------------------------------------------
+
+export interface ShareData {
+  cryptoScore: number;
+  cryptoTier: ScoreTier;
+  devScore: number | null;
+  devTier: ScoreTier | null;
+  devRaw: number | null;
+  onChainScore: number;
+  proof: string;
+  attestationDate: string;
+  verifiedAttrs: string[];
+}

@@ -1,22 +1,17 @@
 import type { Metadata } from "next";
+import type { ShareData } from "@/types";
+import { getTier } from "@/lib/scoring";
 import SharePageClient from "./SharePageClient";
-
-interface ShareData {
-    cryptoScore: number;
-    cryptoTier: string;
-    devScore: number | null;
-    devTier: string | null;
-    devRaw: number | null;
-    onChainScore: number;
-    proof: string;
-    attestationDate: string;
-    verifiedAttrs: string[];
-}
 
 function decodeShareData(encoded: string): ShareData | null {
     try {
         const json = Buffer.from(encoded, "base64").toString("utf-8");
-        return JSON.parse(json);
+        const parsed = JSON.parse(json);
+        return {
+            ...parsed,
+            cryptoTier: getTier(parsed.cryptoScore),
+            devTier: parsed.devScore != null ? getTier(parsed.devScore) : null,
+        };
     } catch {
         return null;
     }
@@ -85,5 +80,6 @@ export default async function SharePage({
     searchParams: Promise<{ d?: string }>;
 }) {
     const params = await searchParams;
-    return <SharePageClient encodedData={params.d} />;
+    const data = params.d ? decodeShareData(params.d) : null;
+    return <SharePageClient data={data} />;
 }

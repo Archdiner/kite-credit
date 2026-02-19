@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
-import type { ScoreTier } from "@/types";
-import { getTier } from "@/lib/scoring";
+import type { ScoreTier, ShareData } from "@/types";
 
 const TIER_GRADIENT: Record<ScoreTier, string> = {
     Building: "from-amber-500 to-orange-600",
@@ -14,39 +13,8 @@ const TIER_GRADIENT: Record<ScoreTier, string> = {
     Elite: "from-indigo-400 via-violet-500 to-purple-600",
 };
 
-interface ShareData {
-    cryptoScore: number;
-    cryptoTier: ScoreTier;
-    devScore: number | null;
-    devTier: ScoreTier | null;
-    devRaw: number | null;
-    onChainScore: number;
-    proof: string;
-    attestationDate: string;
-    verifiedAttrs: string[];
-}
-
-function decodeShareData(encoded: string): ShareData | null {
-    try {
-        const json = atob(encoded);
-        const parsed = JSON.parse(json);
-        return {
-            ...parsed,
-            cryptoTier: getTier(parsed.cryptoScore),
-            devTier: parsed.devScore != null ? getTier(parsed.devScore) : null,
-        };
-    } catch {
-        return null;
-    }
-}
-
-export default function SharePageClient({ encodedData }: { encodedData?: string }) {
+export default function SharePageClient({ data }: { data: ShareData | null }) {
     const [activeMode, setActiveMode] = useState<"crypto" | "dev">("crypto");
-
-    const data = useMemo(() => {
-        if (!encodedData) return null;
-        return decodeShareData(encodedData);
-    }, [encodedData]);
 
     if (!data) {
         return (
