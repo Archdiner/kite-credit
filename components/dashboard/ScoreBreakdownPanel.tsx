@@ -79,7 +79,88 @@ function DetailRow({ label, value, color }: { label: string; value: number; colo
     );
 }
 
-export default function ScoreBreakdownPanel({ breakdown }: { breakdown: ScoreBreakdown }) {
+export default function ScoreBreakdownPanel({ breakdown, viewMode = "crypto" }: { breakdown: ScoreBreakdown; viewMode?: "crypto" | "dev" }) {
+    if (viewMode === "dev" && breakdown.github) {
+        const gh = breakdown.github;
+        return (
+            <div className="space-y-6">
+                <div className="flex items-center gap-3">
+                    <div className="w-1 h-4 bg-indigo-400 rounded-full" />
+                    <h3 className="text-sm font-bold text-white/80 tracking-[0.2em] uppercase">
+                        Developer Score Factors
+                    </h3>
+                </div>
+
+                <div className="space-y-5 bg-white/5 backdrop-blur-md rounded-2xl p-5 border border-indigo-500/10 shadow-xl">
+                    <MetricBar
+                        label="Code Quality"
+                        value={gh.breakdown.codeQuality}
+                        max={80}
+                        color="bg-gradient-to-r from-indigo-500 to-violet-400"
+                        delay={0.1}
+                        details={
+                            <div className="text-xs text-white/50">
+                                CI/CD, tests, README coverage, PR activity, code review participation
+                            </div>
+                        }
+                    />
+
+                    <MetricBar
+                        label="Commit Consistency"
+                        value={gh.breakdown.commitConsistency}
+                        max={70}
+                        color="bg-gradient-to-r from-violet-400 to-purple-400"
+                        delay={0.2}
+                        details={
+                            <div className="text-xs text-white/50">
+                                Recent commit frequency, active weeks, contribution regularity
+                            </div>
+                        }
+                    />
+
+                    <MetricBar
+                        label="Repo Portfolio"
+                        value={gh.breakdown.repoPortfolio}
+                        max={60}
+                        color="bg-gradient-to-r from-purple-400 to-fuchsia-400"
+                        delay={0.3}
+                        details={
+                            <div className="text-xs text-white/50">
+                                Public repos, language diversity, project maturity
+                            </div>
+                        }
+                    />
+
+                    <MetricBar
+                        label="Community Trust"
+                        value={gh.breakdown.communityTrust}
+                        max={50}
+                        color="bg-gradient-to-r from-fuchsia-400 to-pink-400"
+                        delay={0.4}
+                        details={
+                            <div className="text-xs text-white/50">
+                                Stars, followers, issues closed, merged PRs
+                            </div>
+                        }
+                    />
+
+                    <MetricBar
+                        label="Account Age"
+                        value={gh.breakdown.accountAge}
+                        max={40}
+                        color="bg-gradient-to-r from-pink-400 to-rose-400"
+                        delay={0.5}
+                    />
+                </div>
+
+                <div className="flex items-center justify-between bg-indigo-500/10 backdrop-blur-lg rounded-xl px-4 py-3 border border-indigo-500/20">
+                    <span className="text-xs font-bold text-indigo-300/70 tracking-wider uppercase">Total Developer Score</span>
+                    <span className="text-sm font-bold text-indigo-300 font-mono">{gh.score}/300</span>
+                </div>
+            </div>
+        );
+    }
+
     if (!breakdown.fiveFactor) return null;
 
     const { paymentHistory, utilization, creditAge, creditMix, newCredit } = breakdown.fiveFactor;
@@ -153,7 +234,6 @@ export default function ScoreBreakdownPanel({ breakdown }: { breakdown: ScoreBre
                 />
             </div>
 
-            {/* GitHub Quality Section */}
             {breakdown.github && (
                 <motion.div
                     initial={{ opacity: 0, y: 10 }}

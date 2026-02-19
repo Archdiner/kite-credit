@@ -28,21 +28,23 @@ const TIER_CONFIG: Record<ScoreTier, { gradient: string; glow: string; label: st
     },
 };
 
-type ViewMode = "crypto" | "dev" | "unified";
+export type ViewMode = "crypto" | "dev";
 
-export default function ScoreDisplay({ score }: { score: KiteScore }) {
-    const [mode, setMode] = useState<ViewMode>("crypto");
+interface ScoreDisplayProps {
+    score: KiteScore;
+    onModeChange?: (mode: ViewMode) => void;
+    githubOnly?: boolean;
+}
+
+export default function ScoreDisplay({ score, onModeChange, githubOnly = false }: ScoreDisplayProps) {
+    const [mode, setMode] = useState<ViewMode>(githubOnly ? "dev" : "crypto");
 
     const cryptoScoreRaw = Math.max(0, score.total - (score.githubBonus || 0));
     const devScoreRaw = score.breakdown.github ? score.breakdown.github.score : 0;
     const devScoreNormalized = Math.min(1000, Math.floor((devScoreRaw / 300) * 1000));
-    const unifiedScoreRaw = score.breakdown.github
-        ? Math.floor((cryptoScoreRaw * 0.8) + (devScoreNormalized * 0.2))
-        : cryptoScoreRaw;
 
     let currentScore = cryptoScoreRaw;
     if (mode === "dev") currentScore = devScoreNormalized;
-    else if (mode === "unified") currentScore = unifiedScoreRaw;
 
     const currentTier = getTier(currentScore);
     const config = TIER_CONFIG[currentTier];
@@ -56,30 +58,38 @@ export default function ScoreDisplay({ score }: { score: KiteScore }) {
 
     const hasGitHub = !!score.breakdown.github;
 
+    const handleModeChange = (newMode: ViewMode) => {
+        setMode(newMode);
+        onModeChange?.(newMode);
+    };
+
     return (
         <div className="flex flex-col gap-5">
-            {/* Mode Tabs — scrollable on mobile, no overflow clipping */}
-            <div className="flex gap-1 p-1 bg-white/5 rounded-xl border border-white/10 w-full max-w-xs mx-auto md:mx-0 overflow-x-auto">
-                <TabButton
-                    active={mode === "crypto"}
-                    onClick={() => setMode("crypto")}
-                    label="Crypto"
-                />
-                <TabButton
-                    active={mode === "dev"}
-                    onClick={() => setMode("dev")}
-                    disabled={!hasGitHub}
-                    label={hasGitHub ? "Developer" : "Dev ✦"}
-                    activeClass="bg-indigo-500/20 text-indigo-300 border border-indigo-500/20"
-                />
-                <TabButton
-                    active={mode === "unified"}
-                    onClick={() => setMode("unified")}
-                    disabled={!hasGitHub}
-                    label="Unified"
-                    activeClass="bg-emerald-500/20 text-emerald-300 border border-emerald-500/20"
-                />
-            </div>
+            {githubOnly ? (
+                <div className="flex gap-1 p-1 bg-indigo-500/10 rounded-xl border border-indigo-500/20 w-full max-w-xs mx-auto md:mx-0">
+                    <TabButton
+                        active={true}
+                        onClick={() => {}}
+                        label="Developer"
+                        activeClass="bg-indigo-500/20 text-indigo-300 border border-indigo-500/20"
+                    />
+                </div>
+            ) : (
+                <div className="flex gap-1 p-1 bg-white/5 rounded-xl border border-white/10 w-full max-w-xs mx-auto md:mx-0">
+                    <TabButton
+                        active={mode === "crypto"}
+                        onClick={() => handleModeChange("crypto")}
+                        label="Crypto"
+                    />
+                    <TabButton
+                        active={mode === "dev"}
+                        onClick={() => handleModeChange("dev")}
+                        disabled={!hasGitHub}
+                        label={hasGitHub ? "Developer" : "Dev ✦"}
+                        activeClass="bg-indigo-500/20 text-indigo-300 border border-indigo-500/20"
+                    />
+                </div>
+            )}
 
             <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12">
                 {/* Score Ring */}
@@ -104,7 +114,7 @@ export default function ScoreDisplay({ score }: { score: KiteScore }) {
                             initial={{ strokeDashoffset: circumference }}
                             animate={{ strokeDashoffset: offset }}
                             transition={{ duration: 1.5, ease: "easeOut" }}
-                            className={`stroke-current ${mode === "dev" ? "text-indigo-400" : mode === "unified" ? "text-emerald-400" : "text-sky-400"}`}
+                            className={`stroke-current ${mode === "dev" ? "text-indigo-400" : "text-sky-400"}`}
                             style={{ filter: `drop-shadow(0 0 8px ${config.glow})` }}
                         />
                     </svg>
@@ -126,11 +136,6 @@ export default function ScoreDisplay({ score }: { score: KiteScore }) {
                                 Raw: {devScoreRaw}/300
                             </span>
                         )}
-                        {mode === "unified" && (
-                            <span className="mt-2 px-2 py-0.5 bg-white/5 rounded text-[10px] text-white/40 font-mono border border-white/5">
-                                80% Crypto · 20% Dev
-                            </span>
-                        )}
                     </div>
                 </div>
 
@@ -140,31 +145,27 @@ export default function ScoreDisplay({ score }: { score: KiteScore }) {
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.3 }}
-                    className="text-center md:text-left min-w-0"
+                    className="text-center md:text-left"
                 >
                     <p className="text-[10px] text-white/40 font-mono tracking-[0.3em] uppercase mb-2">
-                        {mode === "dev" ? "Reputation Tier" : mode === "unified" ? "Combined Tier" : "Credit Tier"}
+                        {mode === "dev" ? "Reputation Tier" : "Credit Tier"}
                     </p>
-                    <div className="flex items-center gap-3 mb-5 justify-center md:justify-start">
+                    <div className="flex items-center gap-3 mb-5 justify-center md:justify-start overflow-visible">
                         <div className={`w-3.5 h-3.5 rotate-45 bg-gradient-to-br ${config.gradient} flex-shrink-0`} />
-                        <h2 className="text-3xl md:text-4xl font-black text-white tracking-tight uppercase">
+                        <h2 className="text-2xl md:text-3xl font-black text-white tracking-tight uppercase whitespace-nowrap">
                             {config.label}
                         </h2>
                     </div>
 
-                    {/* Data source badges */}
                     <div className="flex flex-wrap gap-2 justify-center md:justify-start">
-                        {(mode === "crypto" || mode === "unified") && score.breakdown.onChain && (
+                        {mode === "crypto" && score.breakdown.onChain && (
                             <SourceBadge label="On-Chain" color="sky" />
                         )}
-                        {(mode === "crypto" || mode === "unified") && score.breakdown.financial && (
+                        {mode === "crypto" && score.breakdown.financial && (
                             <SourceBadge label="Financial" color="orange" />
                         )}
-                        {(mode === "dev" || mode === "unified") && hasGitHub && (
-                            <SourceBadge
-                                label={mode === "dev" ? "GitHub Verified" : "GitHub (20%)"}
-                                color="indigo"
-                            />
+                        {mode === "dev" && hasGitHub && (
+                            <SourceBadge label="GitHub Verified" color="indigo" />
                         )}
                     </div>
                 </motion.div>

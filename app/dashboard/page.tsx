@@ -7,7 +7,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
-import ScoreDisplay from "@/components/dashboard/ScoreDisplay";
+import ScoreDisplay, { type ViewMode } from "@/components/dashboard/ScoreDisplay";
 import ScoreBreakdownPanel from "@/components/dashboard/ScoreBreakdownPanel";
 import PlaidLinkButton from "@/components/dashboard/PlaidLinkButton";
 import AttestationCard from "@/components/dashboard/AttestationCard";
@@ -19,7 +19,7 @@ import type { KiteScore, ZKAttestation } from "@/types";
 type FlowState = "connect" | "loading" | "results";
 
 function DashboardContent() {
-    const { publicKey, connected, signMessage, wallet, connect, connecting } = useWallet();
+    const { publicKey, connected, signMessage, wallet, connect, connecting, disconnect } = useWallet();
     const { setVisible } = useWalletModal();
     const { user, loading: authLoading, signOut, accessToken } = useAuth();
     const router = useRouter();
@@ -32,6 +32,10 @@ function DashboardContent() {
     const [bankConnected, setBankConnected] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [restoringData, setRestoringData] = useState(true);
+    const [viewMode, setViewMode] = useState<ViewMode>("crypto");
+    const [changingWallet, setChangingWallet] = useState(false);
+    const [changingGitHub, setChangingGitHub] = useState(false);
+    const [isGithubOnlyScore, setIsGithubOnlyScore] = useState(false);
 
     // Auth guard: redirect to /auth if not logged in
     useEffect(() => {
@@ -57,7 +61,6 @@ function DashboardContent() {
                 if (data.success && data.data) {
                     const { connections, latestScore } = data.data;
 
-                    // Restore connections
                     if (connections) {
                         for (const conn of connections) {
                             switch (conn.provider) {
@@ -69,12 +72,10 @@ function DashboardContent() {
                                 case "plaid":
                                     setBankConnected(true);
                                     break;
-                                // solana_wallet is handled by wallet adapter
                             }
                         }
                     }
 
-                    // Restore latest score
                     if (latestScore) {
                         setKiteScore({
                             total: latestScore.total,
@@ -123,14 +124,12 @@ function DashboardContent() {
                 invalid_state: "GitHub auth session expired. Please try again.",
                 token_exchange_failed: "Failed to connect GitHub. Please try again.",
                 github_auth_failed: "GitHub authentication failed.",
+                github_already_linked: "This GitHub account is already connected to another user.",
             };
             setError(messages[authError] || `GitHub auth error: ${authError}`);
         }
     }, [searchParams, githubUser]);
 
-    // When a wallet is selected but not connected, explicitly trigger connect().
-    // This handles the race condition where the modal's select() + autoConnect
-    // effect don't fire in the right order.
     useEffect(() => {
         if (wallet && !connected && !connecting) {
             connect().catch(() => { /* Will be caught by onError in WalletProvider */ });
@@ -140,14 +139,26 @@ function DashboardContent() {
     // Persist wallet connection when it changes
     useEffect(() => {
         if (connected && publicKey && accessToken) {
-            fetch("/api/user/wallet", {
+            const endpoint = changingWallet ? "/api/user/change-wallet" : "/api/user/wallet";
+            fetch(endpoint, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${accessToken}`,
                 },
                 body: JSON.stringify({ walletAddress: publicKey.toBase58() }),
-            }).catch(() => { /* Non-fatal */ });
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success && data.error) {
+                        setError(data.error);
+                        disconnect();
+                    }
+                    setChangingWallet(false);
+                })
+                .catch(() => {
+                    setChangingWallet(false);
+                });
         }
     }, [connected, publicKey, accessToken]);
 
@@ -155,9 +166,9 @@ function DashboardContent() {
         if (!publicKey) return;
         setError(null);
         setFlowState("loading");
+        setIsGithubOnlyScore(false);
 
         try {
-            // Step 1: Wallet signature verification
             let signature = "";
             let nonce = "";
             if (signMessage) {
@@ -169,7 +180,6 @@ function DashboardContent() {
                 signature = `${nonce}:${base64Signature}`;
             }
 
-            // Step 2: Fetch composite score
             const res = await fetch("/api/score", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -192,17 +202,77 @@ function DashboardContent() {
         }
     }, [publicKey, signMessage, githubUser]);
 
+    const handleCalculateDevScore = useCallback(async () => {
+        if (!githubUser) return;
+        setError(null);
+        setFlowState("loading");
+        setIsGithubOnlyScore(true);
+
+        try {
+            const res = await fetch("/api/score/github-only", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+            });
+
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || "Developer score calculation failed");
+
+            setKiteScore(data.data.score);
+            setAttestation(data.data.attestation);
+            setFlowState("results");
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Something went wrong");
+            setFlowState("connect");
+        }
+    }, [githubUser]);
+
     const handleConnectGitHub = () => {
-        // Store access token in cookie before redirecting so the callback can find the user
         if (accessToken) {
             document.cookie = `sb-access-token=${accessToken}; path=/; max-age=600; samesite=lax`;
         }
         window.location.href = "/api/auth/github";
     };
 
+    const handleChangeWallet = async () => {
+        setChangingWallet(true);
+        setError(null);
+        try {
+            await disconnect();
+            // Small delay to let the wallet adapter clean up before showing modal
+            setTimeout(() => setVisible(true), 200);
+        } catch {
+            setError("Failed to disconnect wallet. Please try again.");
+            setChangingWallet(false);
+        }
+    };
+
+    const handleChangeGitHub = async () => {
+        setChangingGitHub(true);
+        setError(null);
+        try {
+            const res = await fetch("/api/user/change-github", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${accessToken}`,
+                },
+            });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || "Failed to disconnect GitHub");
+
+            setGithubUser(null);
+            // Clear the github cookie client-side
+            document.cookie = "github_token=; path=/; max-age=0";
+            // Redirect to GitHub OAuth
+            handleConnectGitHub();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to change GitHub account");
+            setChangingGitHub(false);
+        }
+    };
+
     const handlePlaidSuccess = async (publicToken: string) => {
         try {
-            // Store access token in cookie before calling exchange
             if (accessToken) {
                 document.cookie = `sb-access-token=${accessToken}; path=/; max-age=600; samesite=lax`;
             }
@@ -229,7 +299,10 @@ function DashboardContent() {
         router.push("/auth");
     };
 
-    // Show nothing while checking auth or restoring data
+    const canCalculateFullScore = connected;
+    const canCalculateDevScore = !!githubUser && !connected;
+    const canCalculateAnyScore = canCalculateFullScore || canCalculateDevScore;
+
     if (authLoading || !user || restoringData) {
         return (
             <div className="relative min-h-screen overflow-hidden font-sans">
@@ -267,7 +340,6 @@ function DashboardContent() {
                     priority
                     quality={90}
                 />
-                {/* Warm gradient overlay */}
                 <div className="absolute inset-0 bg-gradient-to-b from-slate-900/40 via-slate-900/60 to-slate-900/90" />
             </div>
 
@@ -352,11 +424,20 @@ function DashboardContent() {
                                                 Wallet age, DeFi history, staking activity, and transaction patterns.
                                             </p>
                                             {connected ? (
-                                                <div className="flex items-center gap-2 bg-sky-500/10 border border-sky-400/30 rounded-lg px-4 py-3">
-                                                    <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                                                    <span className="text-sm text-sky-200 font-mono truncate">
-                                                        {publicKey?.toBase58().slice(0, 8)}...{publicKey?.toBase58().slice(-6)}
-                                                    </span>
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center gap-2 bg-sky-500/10 border border-sky-400/30 rounded-lg px-4 py-3">
+                                                        <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                                                        <span className="text-sm text-sky-200 font-mono truncate">
+                                                            {publicKey?.toBase58().slice(0, 8)}...{publicKey?.toBase58().slice(-6)}
+                                                        </span>
+                                                    </div>
+                                                    <button
+                                                        onClick={handleChangeWallet}
+                                                        disabled={changingWallet}
+                                                        className="w-full py-2 text-[11px] text-sky-300/60 hover:text-sky-200 font-mono tracking-wider uppercase border border-sky-500/10 hover:border-sky-400/30 rounded-lg transition-all disabled:opacity-50"
+                                                    >
+                                                        {changingWallet ? "Switching..." : "Connect Different Wallet"}
+                                                    </button>
                                                 </div>
                                             ) : (
                                                 <button
@@ -419,9 +500,18 @@ function DashboardContent() {
                                                 Developer reputation, code quality, commit history, and community trust.
                                             </p>
                                             {githubUser ? (
-                                                <div className="flex items-center gap-2 bg-indigo-500/10 border border-indigo-400/30 rounded-lg px-4 py-3">
-                                                    <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                                                    <span className="text-sm text-indigo-200 font-mono">@{githubUser}</span>
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center gap-2 bg-indigo-500/10 border border-indigo-400/30 rounded-lg px-4 py-3">
+                                                        <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                                                        <span className="text-sm text-indigo-200 font-mono">@{githubUser}</span>
+                                                    </div>
+                                                    <button
+                                                        onClick={handleChangeGitHub}
+                                                        disabled={changingGitHub}
+                                                        className="w-full py-2 text-[11px] text-indigo-300/60 hover:text-indigo-200 font-mono tracking-wider uppercase border border-indigo-500/10 hover:border-indigo-400/30 rounded-lg transition-all disabled:opacity-50"
+                                                    >
+                                                        {changingGitHub ? "Switching..." : "Connect Different GitHub"}
+                                                    </button>
                                                 </div>
                                             ) : (
                                                 <button
@@ -435,29 +525,67 @@ function DashboardContent() {
                                     </motion.div>
                                 </div>
 
-                                {/* Calculate Button */}
-                                {connected && (
+                                {/* Calculate Buttons */}
+                                {canCalculateAnyScore && (
                                     <motion.div
                                         initial={{ opacity: 0, y: 20 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ delay: 0.8 }}
-                                        className="text-center"
+                                        className="text-center space-y-4"
                                     >
-                                        <button
-                                            onClick={handleCalculateScore}
-                                            className="relative group px-12 py-5 text-white font-bold tracking-[0.2em] uppercase overflow-hidden rounded-sm"
-                                        >
-                                            {/* Button gradient background */}
-                                            <div className="absolute inset-0 bg-gradient-to-r from-orange-500 via-sky-500 to-indigo-500 transition-opacity group-hover:opacity-90" />
-                                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-r from-orange-400 via-sky-400 to-indigo-400" />
-                                            {/* Glow */}
-                                            <div className="absolute inset-0 blur-xl bg-gradient-to-r from-orange-500/40 via-sky-500/40 to-indigo-500/40 group-hover:blur-2xl transition-all" />
-                                            <span className="relative z-10 text-sm md:text-base">Calculate Kite Score</span>
-                                        </button>
+                                        {canCalculateFullScore && (
+                                            <>
+                                                <button
+                                                    onClick={handleCalculateScore}
+                                                    className="relative group px-12 py-5 text-white font-bold tracking-[0.2em] uppercase overflow-hidden rounded-sm"
+                                                >
+                                                    <div className="absolute inset-0 bg-gradient-to-r from-orange-500 via-sky-500 to-indigo-500 transition-opacity group-hover:opacity-90" />
+                                                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-r from-orange-400 via-sky-400 to-indigo-400" />
+                                                    <div className="absolute inset-0 blur-xl bg-gradient-to-r from-orange-500/40 via-sky-500/40 to-indigo-500/40 group-hover:blur-2xl transition-all" />
+                                                    <span className="relative z-10 text-sm md:text-base">Calculate Kite Score</span>
+                                                </button>
 
-                                        <p className="mt-6 text-xs text-white/30 font-mono tracking-wider">
-                                            Your wallet will sign a verification message to prove ownership
-                                        </p>
+                                                <p className="mt-6 text-xs text-white/30 font-mono tracking-wider">
+                                                    Your wallet will sign a verification message to prove ownership
+                                                </p>
+                                            </>
+                                        )}
+
+                                        {canCalculateDevScore && (
+                                            <>
+                                                <button
+                                                    onClick={handleCalculateDevScore}
+                                                    className="relative group px-12 py-5 text-white font-bold tracking-[0.2em] uppercase overflow-hidden rounded-sm"
+                                                >
+                                                    <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500 transition-opacity group-hover:opacity-90" />
+                                                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-r from-indigo-400 via-violet-400 to-purple-400" />
+                                                    <div className="absolute inset-0 blur-xl bg-gradient-to-r from-indigo-500/40 via-violet-500/40 to-purple-500/40 group-hover:blur-2xl transition-all" />
+                                                    <span className="relative z-10 text-sm md:text-base">Calculate Developer Score</span>
+                                                </button>
+
+                                                {/* Developer-only warning */}
+                                                <motion.div
+                                                    initial={{ opacity: 0 }}
+                                                    animate={{ opacity: 1 }}
+                                                    transition={{ delay: 1 }}
+                                                    className="max-w-lg mx-auto mt-4 bg-indigo-500/10 border border-indigo-400/20 rounded-xl p-4"
+                                                >
+                                                    <div className="flex items-start gap-3">
+                                                        <div className="w-2 h-2 bg-indigo-400 rotate-45 mt-1.5 flex-shrink-0" />
+                                                        <div className="text-left">
+                                                            <p className="text-xs font-bold text-indigo-300/80 tracking-wider uppercase mb-1">
+                                                                Developer Score Only
+                                                            </p>
+                                                            <p className="text-xs text-white/50 leading-relaxed">
+                                                                This score evaluates technical reputation based on your GitHub activity.
+                                                                It is designed for developers and does not provide financial or credit insights.
+                                                                Connect a wallet for a comprehensive credit score.
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </motion.div>
+                                            </>
+                                        )}
                                     </motion.div>
                                 )}
 
@@ -483,7 +611,7 @@ function DashboardContent() {
                                 className="flex flex-col items-center justify-center min-h-[60vh]"
                             >
                                 <motion.div
-                                    className="w-20 h-20 bg-gradient-to-br from-orange-500 to-sky-500 rotate-45 mb-12"
+                                    className={`w-20 h-20 bg-gradient-to-br ${isGithubOnlyScore ? "from-indigo-500 to-violet-500" : "from-orange-500 to-sky-500"} rotate-45 mb-12`}
                                     animate={{
                                         rotate: [45, 135, 225, 315, 405],
                                         scale: [1, 1.1, 1, 0.9, 1],
@@ -495,10 +623,13 @@ function DashboardContent() {
                                     }}
                                 />
                                 <p className="text-lg text-white font-light tracking-widest uppercase">
-                                    Calculating your score...
+                                    {isGithubOnlyScore ? "Analyzing developer profile..." : "Calculating your score..."}
                                 </p>
                                 <div className="flex gap-2 mt-6">
-                                    {["On-Chain", "Financial", "AI Analysis"].map((step, i) => (
+                                    {(isGithubOnlyScore
+                                        ? ["GitHub", "Code Quality", "AI Analysis"]
+                                        : ["On-Chain", "Financial", "AI Analysis"]
+                                    ).map((step, i) => (
                                         <motion.span
                                             key={step}
                                             initial={{ opacity: 0.3 }}
@@ -508,7 +639,7 @@ function DashboardContent() {
                                                 delay: i * 0.4,
                                                 repeat: Infinity,
                                             }}
-                                            className="text-xs text-sky-300/60 font-mono tracking-wider"
+                                            className={`text-xs font-mono tracking-wider ${isGithubOnlyScore ? "text-indigo-300/60" : "text-sky-300/60"}`}
                                         >
                                             {step}
                                         </motion.span>
@@ -528,15 +659,37 @@ function DashboardContent() {
                             >
                                 <div className="flex justify-between items-center">
                                     <h2 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-orange-400 to-amber-200">
-                                        Your Credit Profile
+                                        {isGithubOnlyScore ? "Your Developer Profile" : "Your Credit Profile"}
                                     </h2>
                                     <Link href="/how-it-works" className="text-xs text-white/50 hover:text-white/80 transition-colors uppercase tracking-widest border border-white/10 px-4 py-2 rounded-full">
                                         How It Works
                                     </Link>
                                 </div>
 
+                                {/* GitHub-only score notice */}
+                                {isGithubOnlyScore && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: -10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        className="bg-indigo-500/10 border border-indigo-400/20 rounded-xl p-4"
+                                    >
+                                        <div className="flex items-start gap-3">
+                                            <div className="w-2 h-2 bg-indigo-400 rotate-45 mt-1.5 flex-shrink-0" />
+                                            <div>
+                                                <p className="text-xs font-bold text-indigo-300/80 tracking-wider uppercase mb-1">
+                                                    Developer Score
+                                                </p>
+                                                <p className="text-xs text-white/50 leading-relaxed">
+                                                    This score is based solely on your GitHub activity and reflects technical reputation.
+                                                    It does not include financial or on-chain credit data. Connect a wallet to get a comprehensive Kite Score.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                )}
+
                                 <div className="grid lg:grid-cols-12 gap-8">
-                                    {/* Left Column: Score + Attestation */}
+                                    {/* Left Column: Score + Attestation + Share */}
                                     <div className="lg:col-span-5 space-y-6">
                                         <motion.div
                                             initial={{ opacity: 0, y: 20 }}
@@ -545,7 +698,7 @@ function DashboardContent() {
                                         >
                                             <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-purple-500/5" />
                                             <div className="relative z-10">
-                                                <ScoreDisplay score={kiteScore} />
+                                                <ScoreDisplay score={kiteScore} githubOnly={isGithubOnlyScore} onModeChange={setViewMode} />
 
                                                 {attestation && (
                                                     <div className="mt-8">
@@ -554,9 +707,15 @@ function DashboardContent() {
                                                 )}
                                             </div>
                                         </motion.div>
+
+                                        <ShareScoreCard
+                                            score={kiteScore}
+                                            attestation={attestation}
+                                            activeMode={isGithubOnlyScore ? "dev" : viewMode}
+                                        />
                                     </div>
 
-                                    {/* Right Column: Radar + Breakdown */}
+                                    {/* Right Column: Radar + AI + Breakdown */}
                                     <div className="lg:col-span-7 space-y-6">
                                         <motion.div
                                             initial={{ opacity: 0, scale: 0.95 }}
@@ -564,13 +723,15 @@ function DashboardContent() {
                                             transition={{ delay: 0.2 }}
                                             className="grid md:grid-cols-2 gap-6"
                                         >
-                                            <div className="bg-slate-900/40 backdrop-blur-lg rounded-2xl p-6 border border-white/5 flex items-center justify-center min-h-[300px]">
-                                                {kiteScore.breakdown.fiveFactor && (
-                                                    <ScoreRadarChart breakdown={kiteScore.breakdown.fiveFactor} />
-                                                )}
-                                            </div>
+                                            {!isGithubOnlyScore && viewMode === "crypto" && (
+                                                <div className="bg-slate-900/40 backdrop-blur-lg rounded-2xl p-6 border border-white/5 flex items-center justify-center min-h-[300px]">
+                                                    {kiteScore.breakdown.fiveFactor && (
+                                                        <ScoreRadarChart breakdown={kiteScore.breakdown.fiveFactor} />
+                                                    )}
+                                                </div>
+                                            )}
 
-                                            <div className="bg-slate-900/40 backdrop-blur-lg rounded-2xl p-6 border border-white/5 flex flex-col justify-center">
+                                            <div className={`bg-slate-900/40 backdrop-blur-lg rounded-2xl p-6 border border-white/5 flex flex-col justify-center ${isGithubOnlyScore || viewMode === "dev" ? "md:col-span-2" : ""}`}>
                                                 <h4 className="text-xs font-bold text-white/40 uppercase tracking-widest mb-4">AI Analysis</h4>
                                                 <p className="text-sm text-white/80 leading-relaxed italic border-l-2 border-indigo-500/30 pl-4 py-2">
                                                     &quot;{kiteScore.explanation}&quot;
@@ -578,20 +739,25 @@ function DashboardContent() {
                                             </div>
                                         </motion.div>
 
-                                        <ScoreBreakdownPanel breakdown={kiteScore.breakdown} />
+                                        <ScoreBreakdownPanel
+                                            breakdown={kiteScore.breakdown}
+                                            viewMode={isGithubOnlyScore ? "dev" : viewMode}
+                                        />
                                     </div>
                                 </div>
 
-                                {/* Actions: Share + Recalculate */}
+                                {/* Recalculate */}
                                 <motion.div
                                     initial={{ opacity: 0 }}
                                     animate={{ opacity: 1 }}
                                     transition={{ delay: 1 }}
-                                    className="flex flex-col items-center gap-4 pt-4 pb-12"
+                                    className="flex justify-center pt-4 pb-12"
                                 >
-                                    <ShareScoreCard score={kiteScore} attestation={attestation} />
                                     <button
-                                        onClick={() => setFlowState("connect")}
+                                        onClick={() => {
+                                            setFlowState("connect");
+                                            setIsGithubOnlyScore(false);
+                                        }}
                                         className="px-8 py-3 bg-white text-slate-900 font-bold tracking-[0.2em] uppercase text-sm rounded-sm hover:bg-sky-50 transition-colors shadow-[0_0_20px_rgba(255,255,255,0.2)]"
                                     >
                                         Recalculate Score
@@ -601,9 +767,6 @@ function DashboardContent() {
                         )}
                     </AnimatePresence>
                 </main>
-
-                {/* ZK Shield indicator */}
-
             </div>
         </div>
     );
