@@ -274,15 +274,15 @@ function DashboardContent() {
             {/* Content */}
             <div className="relative z-10">
                 {/* Header */}
-                <header className="px-6 md:px-12 pt-8 pb-4">
-                    <div className="max-w-6xl mx-auto flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="w-5 h-5 bg-sky-400 rotate-45 shadow-[0_0_15px_rgba(56,189,248,0.6)]" />
-                            <h1 className="text-xl font-bold text-white tracking-wider uppercase">
+                <header className="px-4 sm:px-6 md:px-12 pt-6 sm:pt-8 pb-4">
+                    <div className="max-w-6xl mx-auto flex items-center justify-between gap-2">
+                        <Link href="/" className="flex items-center gap-2 sm:gap-3 min-w-0 shrink-0">
+                            <div className="w-4 h-4 sm:w-5 sm:h-5 bg-sky-400 rotate-45 shadow-[0_0_15px_rgba(56,189,248,0.6)]" />
+                            <h1 className="text-base sm:text-xl font-bold text-white tracking-wider uppercase">
                                 Kite Credit
                             </h1>
-                        </div>
-                        <div className="flex items-center gap-4">
+                        </Link>
+                        <div className="flex items-center gap-2 sm:gap-4">
                             <div className="hidden sm:flex items-center gap-2 bg-white/5 border border-white/10 px-3 py-1.5 rounded-lg">
                                 <div className="w-2 h-2 rounded-full bg-emerald-400" />
                                 <span className="text-xs text-white/60 font-mono">
@@ -291,22 +291,16 @@ function DashboardContent() {
                             </div>
                             <button
                                 onClick={handleSignOut}
-                                className="text-xs text-white/40 hover:text-white/70 transition-colors tracking-widest uppercase border border-white/10 px-3 py-1.5 rounded-lg hover:border-white/20"
+                                className="text-xs text-white/40 hover:text-white/70 transition-colors tracking-widest uppercase border border-white/10 px-2.5 py-1.5 sm:px-3 rounded-lg hover:border-white/20"
                             >
                                 Sign Out
                             </button>
-                            <Link
-                                href="/"
-                                className="absolute top-4 left-4 p-2 rounded-full bg-white/5 hover:bg-white/10 text-white/50 hover:text-white transition-colors"
-                            >
-                                ← Home
-                            </Link>
                         </div>
                     </div>
                 </header>
 
                 {/* Main Content */}
-                <main className="max-w-6xl mx-auto px-6 md:px-12 py-8">
+                <main className="max-w-6xl mx-auto px-4 sm:px-6 md:px-12 py-6 sm:py-8">
                     <AnimatePresence mode="wait">
                         {flowState === "connect" && (
                             <motion.div
@@ -317,7 +311,7 @@ function DashboardContent() {
                                 transition={{ duration: 0.6 }}
                             >
                                 {/* Hero Section */}
-                                <div className="text-center mb-16">
+                                <div className="text-center mb-8 sm:mb-16">
                                     <motion.p
                                         initial={{ opacity: 0 }}
                                         animate={{ opacity: 1 }}
@@ -338,7 +332,7 @@ function DashboardContent() {
                                 </div>
 
                                 {/* Source Connection Cards */}
-                                <div className="grid md:grid-cols-3 gap-6 md:gap-8 mb-12">
+                                <div className="grid md:grid-cols-3 gap-4 sm:gap-6 md:gap-8 mb-8 sm:mb-12">
                                     {/* Solana Wallet Card */}
                                     <motion.div
                                         initial={{ opacity: 0, y: 30 }}
@@ -353,7 +347,6 @@ function DashboardContent() {
                                                 <h3 className="text-lg font-bold text-white tracking-wide uppercase">
                                                     On-Chain
                                                 </h3>
-                                                <span className="ml-auto text-xs text-sky-400 font-mono">50%</span>
                                             </div>
                                             <p className="text-sm text-white/60 mb-6 leading-relaxed">
                                                 Wallet age, DeFi history, staking activity, and transaction patterns.
@@ -367,7 +360,7 @@ function DashboardContent() {
                                                 </div>
                                             ) : (
                                                 <button
-                                                    className="w-full py-3 bg-gradient-to-r from-sky-500 to-blue-600 text-white font-bold tracking-wider uppercase text-sm rounded-lg hover:from-sky-400 hover:to-blue-500 transition-all shadow-lg"
+                                                    className="w-full py-3.5 sm:py-3 bg-gradient-to-r from-sky-500 to-blue-600 text-white font-bold tracking-wider uppercase text-sm rounded-lg hover:from-sky-400 hover:to-blue-500 active:scale-[0.98] transition-all shadow-lg"
                                                     onClick={() => {
                                                         setVisible(true);
                                                     }}
@@ -407,36 +400,33 @@ function DashboardContent() {
                                         </div>
                                     </motion.div>
 
-                                    {/* GitHub Bonus Card */}
+                                    {/* GitHub Developer Card */}
                                     <motion.div
                                         initial={{ opacity: 0, y: 30 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ delay: 0.6 }}
                                         className="relative group"
                                     >
-                                        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-violet-600/10 rounded-xl blur-xl group-hover:blur-2xl transition-all opacity-40" />
-                                        <div className="relative bg-slate-900/60 backdrop-blur-lg rounded-xl p-6 border border-white/10 hover:border-indigo-400/30 transition-all shadow-2xl">
+                                        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/20 to-violet-600/20 rounded-xl blur-xl group-hover:blur-2xl transition-all opacity-60" />
+                                        <div className="relative bg-slate-900/80 backdrop-blur-lg rounded-xl p-6 border border-indigo-500/20 hover:border-indigo-400/40 transition-all shadow-2xl">
                                             <div className="flex items-center gap-3 mb-4">
-                                                <div className="w-3 h-3 bg-indigo-400 rotate-45 opacity-60" />
-                                                <h3 className="text-lg font-bold text-white/70 tracking-wide uppercase">
+                                                <div className="w-3 h-3 bg-indigo-400 rotate-45" />
+                                                <h3 className="text-lg font-bold text-white tracking-wide uppercase">
                                                     GitHub
                                                 </h3>
-                                                <span className="ml-auto text-[10px] text-indigo-300/60 font-mono border border-indigo-400/20 px-2 py-0.5 rounded-full">
-                                                    BONUS
-                                                </span>
                                             </div>
-                                            <p className="text-sm text-white/40 mb-6 leading-relaxed">
-                                                Optional professional reputation boost. Up to +100 bonus points.
+                                            <p className="text-sm text-white/60 mb-6 leading-relaxed">
+                                                Developer reputation, code quality, commit history, and community trust.
                                             </p>
                                             {githubUser ? (
-                                                <div className="flex items-center gap-2 bg-indigo-500/10 border border-indigo-400/20 rounded-lg px-4 py-3">
-                                                    <div className="w-2 h-2 rounded-full bg-indigo-400" />
-                                                    <span className="text-sm text-indigo-200/70 font-mono">@{githubUser}</span>
+                                                <div className="flex items-center gap-2 bg-indigo-500/10 border border-indigo-400/30 rounded-lg px-4 py-3">
+                                                    <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                                                    <span className="text-sm text-indigo-200 font-mono">@{githubUser}</span>
                                                 </div>
                                             ) : (
                                                 <button
                                                     onClick={handleConnectGitHub}
-                                                    className="w-full py-3 bg-white/5 border border-white/10 text-white/60 font-bold tracking-wider uppercase text-sm rounded-lg hover:bg-white/10 hover:border-indigo-400/30 transition-all"
+                                                    className="w-full py-3.5 sm:py-3 bg-gradient-to-r from-indigo-500 to-violet-600 text-white font-bold tracking-wider uppercase text-sm rounded-lg hover:from-indigo-400 hover:to-violet-500 active:scale-[0.98] transition-all shadow-lg"
                                                 >
                                                     Connect GitHub
                                                 </button>

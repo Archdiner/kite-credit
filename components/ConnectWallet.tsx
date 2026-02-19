@@ -33,7 +33,8 @@ export default function ConnectWallet({ onConnected, compact = false }: Props) {
                         border: "1px solid rgba(56, 189, 248, 0.3)",
                         borderRadius: "8px",
                         fontSize: "14px",
-                        height: "40px",
+                        height: "44px",
+                        minWidth: "44px",
                         fontFamily: "var(--font-outfit)",
                     }}
                 />

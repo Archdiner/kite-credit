@@ -11,6 +11,11 @@ import {
     type Adapter,
     type WalletError,
 } from "@solana/wallet-adapter-base";
+import {
+    PhantomWalletAdapter,
+    SolflareWalletAdapter,
+    CoinbaseWalletAdapter,
+} from "@solana/wallet-adapter-wallets";
 import { clusterApiUrl, type Cluster } from "@solana/web3.js";
 
 import "@solana/wallet-adapter-react-ui/styles.css";
@@ -29,7 +34,17 @@ export default function WalletProvider({ children }: Props) {
         return clusterApiUrl(network);
     }, [network]);
 
-    const wallets = useMemo(() => [], []);
+    // Explicit adapters ensure wallets appear on mobile (where Wallet Standard
+    // browser-extension detection doesn't work). Each adapter handles deep-linking
+    // to its respective mobile app automatically.
+    const wallets = useMemo(
+        () => [
+            new PhantomWalletAdapter(),
+            new SolflareWalletAdapter(),
+            new CoinbaseWalletAdapter(),
+        ],
+        [],
+    );
 
     const onError = useCallback((error: WalletError, adapter?: Adapter) => {
         if (error instanceof WalletNotReadyError && adapter && typeof window !== "undefined") {
