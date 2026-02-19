@@ -13,6 +13,7 @@ function makeData(overrides: Partial<OnChainData> = {}): OnChainData {
         deFiInteractions: [],
         stakingActive: false,
         stakingDurationDays: 0,
+        solBalance: 0,
         ...overrides,
     };
 }

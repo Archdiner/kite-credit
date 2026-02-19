@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown } from "lucide-react";
 import type { ScoreBreakdown } from "@/types";
@@ -19,18 +19,24 @@ function MetricBar({ label, value, max, color, delay, details }: MetricBarProps)
     const [isExpanded, setIsExpanded] = useState(false);
 
     return (
-        <div className="group">
-            <motion.div
+        <div>
+            <motion.button
+                type="button"
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay, duration: 0.5 }}
-                className="space-y-2 cursor-pointer"
-                onClick={() => setIsExpanded(!isExpanded)}
+                className="w-full space-y-2 cursor-pointer group text-left"
+                onClick={() => details && setIsExpanded(!isExpanded)}
             >
                 <div className="flex justify-between items-baseline">
-                    <span className="text-xs font-bold text-white/50 tracking-[0.1em] uppercase group-hover:text-white/80 transition-colors">
-                        {label}
-                    </span>
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-white/50 tracking-[0.1em] uppercase group-hover:text-white/80 transition-colors">
+                            {label}
+                        </span>
+                        {details && (
+                            <ChevronDown className={`w-3.5 h-3.5 text-white/30 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
+                        )}
+                    </div>
                     <span className="text-sm font-mono text-white/90">
                         {value}<span className="text-white/30 text-xs">/{max}</span>
                     </span>
@@ -43,34 +49,32 @@ function MetricBar({ label, value, max, color, delay, details }: MetricBarProps)
                         transition={{ delay: delay + 0.2, duration: 1, ease: "easeOut" }}
                     />
                 </div>
-            </motion.div>
-
-            {/* New interactive header for expansion */}
-            <div
-                className="flex items-center justify-between w-full p-4 pl-12 cursor-pointer hover:bg-white/5 transition-colors"
-                onClick={() => setIsExpanded(!isExpanded)}
-            >
-                <div className="flex gap-8 text-sm text-gray-400">
-                    <span>{label}</span>
-                </div>
-                <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
-            </div>
+            </motion.button>
 
             <AnimatePresence initial={false}>
-                {isExpanded && (
+                {isExpanded && details && (
                     <motion.div
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: "auto", opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
                         transition={{ duration: 0.2 }}
-                        className="overflow-hidden bg-black/20"
+                        className="overflow-hidden"
                     >
-                        <div className="p-4 pl-12 space-y-3">
+                        <div className="pt-2 pb-1 pl-1 space-y-1 text-xs text-white/50">
                             {details}
                         </div>
                     </motion.div>
                 )}
             </AnimatePresence>
+        </div>
+    );
+}
+
+function DetailRow({ label, value, color }: { label: string; value: number; color: string }) {
+    return (
+        <div className="flex justify-between">
+            <span>{label}</span>
+            <span className={color}>{value} pts</span>
         </div>
     );
 }
@@ -81,15 +85,15 @@ export default function ScoreBreakdownPanel({ breakdown }: { breakdown: ScoreBre
     const { paymentHistory, utilization, creditAge, creditMix, newCredit } = breakdown.fiveFactor;
 
     return (
-        <div className="space-y-8">
-            <div className="flex items-center gap-3 mb-6">
+        <div className="space-y-6">
+            <div className="flex items-center gap-3">
                 <div className="w-1 h-4 bg-emerald-400 rounded-full" />
                 <h3 className="text-sm font-bold text-white/80 tracking-[0.2em] uppercase">
                     Score Factors
                 </h3>
             </div>
 
-            <div className="space-y-6 bg-white/5 backdrop-blur-md rounded-2xl p-6 border border-white/10 shadow-xl">
+            <div className="space-y-5 bg-white/5 backdrop-blur-md rounded-2xl p-5 border border-white/10 shadow-xl">
                 <MetricBar
                     label="Payment History"
                     value={paymentHistory.score}
@@ -97,10 +101,10 @@ export default function ScoreBreakdownPanel({ breakdown }: { breakdown: ScoreBre
                     color="bg-gradient-to-r from-emerald-500 to-teal-400"
                     delay={0.1}
                     details={
-                        <div className="grid grid-cols-1 gap-1">
-                            <div className="flex justify-between"><span>On-Chain Repayment History</span> <span className="text-emerald-400">{paymentHistory.details.onChainRepayments} pts</span></div>
-                            <div className="flex justify-between"><span>Bank Bill Pay Consistency</span> <span className="text-teal-400">{paymentHistory.details.bankBillPay} pts</span></div>
-                        </div>
+                        <>
+                            <DetailRow label="On-Chain Repayments" value={paymentHistory.details.onChainRepayments} color="text-emerald-400" />
+                            <DetailRow label="Bill Pay Consistency" value={paymentHistory.details.bankBillPay} color="text-teal-400" />
+                        </>
                     }
                 />
 
@@ -111,10 +115,10 @@ export default function ScoreBreakdownPanel({ breakdown }: { breakdown: ScoreBre
                     color="bg-gradient-to-r from-teal-400 to-sky-400"
                     delay={0.2}
                     details={
-                        <div className="grid grid-cols-1 gap-1">
-                            <div className="flex justify-between"><span>Collateral Health</span> <span className="text-teal-400">{utilization.details.collateralHealth} pts</span></div>
-                            <div className="flex justify-between"><span>Bank Balance Ratio</span> <span className="text-sky-400">{utilization.details.balanceRatio} pts</span></div>
-                        </div>
+                        <>
+                            <DetailRow label="Collateral Health" value={utilization.details.collateralHealth} color="text-teal-400" />
+                            <DetailRow label="Balance Ratio" value={utilization.details.balanceRatio} color="text-sky-400" />
+                        </>
                     }
                 />
 
@@ -125,7 +129,7 @@ export default function ScoreBreakdownPanel({ breakdown }: { breakdown: ScoreBre
                     color="bg-gradient-to-r from-sky-400 to-indigo-400"
                     delay={0.3}
                     details={
-                        <div className="flex justify-between"><span>Wallet Age Score</span> <span className="text-indigo-400">{creditAge.details.walletAge} pts</span></div>
+                        <DetailRow label="Wallet Age" value={creditAge.details.walletAge} color="text-indigo-400" />
                     }
                 />
 
@@ -136,7 +140,7 @@ export default function ScoreBreakdownPanel({ breakdown }: { breakdown: ScoreBre
                     color="bg-gradient-to-r from-indigo-400 to-violet-400"
                     delay={0.4}
                     details={
-                        <div className="flex justify-between"><span>DeFi Protocol Diversity</span> <span className="text-violet-400">{creditMix.details.protocolDiversity} pts</span></div>
+                        <DetailRow label="Protocol Diversity" value={creditMix.details.protocolDiversity} color="text-violet-400" />
                     }
                 />
 
@@ -146,28 +150,47 @@ export default function ScoreBreakdownPanel({ breakdown }: { breakdown: ScoreBre
                     max={100}
                     color="bg-gradient-to-r from-violet-400 to-purple-400"
                     delay={0.5}
-                    details={
-                        <div className="flex justify-between"><span>Recent Inquiries Impact</span> <span className="text-purple-400">{newCredit.score} pts</span></div>
-                    }
                 />
             </div>
 
-            {/* GitHub Bonus Section */}
+            {/* GitHub Quality Section */}
             {breakdown.github && (
                 <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.6 }}
-                    className="mt-4 bg-slate-900/30 backdrop-blur-lg rounded-xl p-4 border border-indigo-500/20 flex flex-col gap-2"
+                    className="bg-slate-900/30 backdrop-blur-lg rounded-xl p-4 border border-indigo-500/20"
                 >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 mb-3">
                         <div className="w-2 h-2 bg-indigo-400 rotate-45" />
                         <span className="text-xs font-bold text-white/50 tracking-[0.2em] uppercase">
-                            GitHub Bonus
+                            Developer Score
                         </span>
                         <span className="ml-auto text-sm font-bold text-indigo-300 font-mono">
-                            +{Math.floor((breakdown.github.score / 6))} pts
+                            {breakdown.github.score}/300
                         </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-white/40">
+                        <div className="flex justify-between">
+                            <span>Account Age</span>
+                            <span className="text-indigo-300/70">{breakdown.github.breakdown.accountAge}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span>Repo Portfolio</span>
+                            <span className="text-indigo-300/70">{breakdown.github.breakdown.repoPortfolio}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span>Commit Consistency</span>
+                            <span className="text-indigo-300/70">{breakdown.github.breakdown.commitConsistency}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span>Community Trust</span>
+                            <span className="text-indigo-300/70">{breakdown.github.breakdown.communityTrust}</span>
+                        </div>
+                        <div className="flex justify-between col-span-2 pt-1 border-t border-white/5 mt-1">
+                            <span className="text-indigo-200/60 font-medium">Code Quality</span>
+                            <span className="text-indigo-300 font-medium">{breakdown.github.breakdown.codeQuality}/80</span>
+                        </div>
                     </div>
                 </motion.div>
             )}

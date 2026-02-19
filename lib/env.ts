@@ -7,7 +7,8 @@
 // ---------------------------------------------------------------------------
 
 // Prevent accidental client-side import of server secrets
-if (typeof window !== "undefined") {
+// Prevent accidental client-side import of server secrets
+if (typeof window !== "undefined" && process.env.NODE_ENV !== "test") {
     throw new Error("lib/env.ts should only be imported on the server");
 }
 
@@ -52,12 +53,12 @@ export function getEnv(): EnvConfig {
     if (_env) return _env;
 
     _env = {
-        SOLANA_RPC_URL: requireEnv("SOLANA_RPC_URL"),
+        SOLANA_RPC_URL: getOptionalEnv("SOLANA_RPC_URL", "https://api.mainnet-beta.solana.com"),
         GITHUB_CLIENT_ID: requireEnv("GITHUB_CLIENT_ID"),
         GITHUB_CLIENT_SECRET: requireEnv("GITHUB_CLIENT_SECRET"),
-        GEMINI_API_KEY: requireEnv("GEMINI_API_KEY"),
-        RECLAIM_APP_ID: requireEnv("RECLAIM_APP_ID"),
-        RECLAIM_APP_SECRET: requireEnv("RECLAIM_APP_SECRET"),
+        GEMINI_API_KEY: getOptionalEnv("GEMINI_API_KEY", ""),
+        RECLAIM_APP_ID: getOptionalEnv("RECLAIM_APP_ID", ""),
+        RECLAIM_APP_SECRET: getOptionalEnv("RECLAIM_APP_SECRET", ""),
         NEXT_PUBLIC_APP_URL: getOptionalEnv("NEXT_PUBLIC_APP_URL", "http://localhost:3000"),
     };
 

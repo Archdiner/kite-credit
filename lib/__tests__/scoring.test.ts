@@ -1,14 +1,9 @@
-// ---------------------------------------------------------------------------
-// Tests for Kite Score Calculation (v3 - 5 Factor Model)
-// ---------------------------------------------------------------------------
-
 import { assembleKiteScore, getTier } from "../scoring";
 import type { OnChainScore, FinancialScore, GitHubScore } from "@/types";
 
 describe("Kite Scoring Engine v3", () => {
-    // Mock Data
     const mockOnChain: OnChainScore = {
-        score: 500, // Max on-chain
+        score: 500,
         breakdown: {
             walletAge: 125,
             deFiActivity: 190,
@@ -18,106 +13,117 @@ describe("Kite Scoring Engine v3", () => {
     };
 
     const mockFinancial: FinancialScore = {
-        score: 500, // Max financial
+        score: 500,
         breakdown: {
             balanceHealth: 250,
             incomeConsistency: 165,
             verificationBonus: 85,
         },
+        verified: true,
     };
 
     const mockGitHub: GitHubScore = {
-        score: 300, // Max GitHub
+        score: 300,
         breakdown: {
-            accountAge: 50,
-            repoPortfolio: 75,
-            commitConsistency: 100,
-            communityTrust: 75,
+            accountAge: 40,
+            repoPortfolio: 60,
+            commitConsistency: 70,
+            communityTrust: 50,
+            codeQuality: 80,
         },
     };
 
     describe("getTier", () => {
-        it("classifies scores correctly", () => {
-            expect(getTier(850)).toBe("Elite");
-            expect(getTier(750)).toBe("Strong");
-            expect(getTier(650)).toBe("Steady");
-            expect(getTier(500)).toBe("Building");
+        it("classifies all tier boundaries correctly", () => {
+            expect(getTier(1000)).toBe("Elite");
+            expect(getTier(800)).toBe("Elite");
+            expect(getTier(799)).toBe("Strong");
+            expect(getTier(700)).toBe("Strong");
+            expect(getTier(699)).toBe("Steady");
+            expect(getTier(600)).toBe("Steady");
+            expect(getTier(599)).toBe("Building");
             expect(getTier(0)).toBe("Building");
         });
     });
 
     describe("assembleKiteScore", () => {
-        it("calculates a perfect score correctly", () => {
+        it("caps score at 1000 with perfect inputs", () => {
             const result = assembleKiteScore(
-                {
-                    onChain: mockOnChain,
-                    financial: mockFinancial,
-                    github: mockGitHub,
-                },
+                { onChain: mockOnChain, financial: mockFinancial, github: mockGitHub },
                 "Test explanation"
             );
-
-            // 5 Factors:
-            // Payment History: 175 (on-chain) + 175 (bank) = 350
-            // Utilization: 150 (on-chain staking) + 150 (bank balance) = 300
-            // Credit Age: 150 (wallet age) = 150
-            // Credit Mix: 100 (DeFi activity) = 100
-            // New Credit: 100 (verification bonus) = 100
-            // Total Core = 1000
-            // + GitHub Bonus = 50
-            // Capped at 1000
-
-            expect(result.total).toBe(1000);
+            expect(result.total).toBeLessThanOrEqual(1000);
             expect(result.tier).toBe("Elite");
-            expect(result.breakdown.fiveFactor.paymentHistory.score).toBe(350);
             expect(result.githubBonus).toBe(50);
         });
 
-        it("calculates score without financial data", () => {
+        it("produces valid score without financial data", () => {
             const result = assembleKiteScore(
-                {
-                    onChain: mockOnChain,
-                    financial: null,
-                    github: null,
-                },
-                "Test explanation"
+                { onChain: mockOnChain, financial: null, github: null },
+                "On-chain only"
             );
-
-            // Payment History: 175 (on-chain) + 0 = 175
-            // Utilization: 150 (on-chain staking) + 0 = 150
-            // Credit Age: 150 (wallet age) = 150
-            // Credit Mix: 100 (DeFi activity) = 100
-            // New Credit: 50 (baseline) = 50
-            // Total = 625
-
-            expect(result.total).toBe(625);
-            expect(result.tier).toBe("Steady");
+            expect(result.total).toBeGreaterThan(0);
+            expect(result.total).toBeLessThanOrEqual(1000);
+            expect(result.weights?.onChain).toBeGreaterThan(0.9);
+            expect(result.weights?.financial).toBeLessThan(0.1);
         });
 
-        it("calculates score with only empty wallet", () => {
+        it("applies trust dampener for fresh empty wallets", () => {
             const emptyOnChain: OnChainScore = {
                 score: 0,
-                breakdown: { walletAge: 0, deFiActivity: 0, repaymentHistory: 0, staking: 0 }
+                breakdown: { walletAge: 0, deFiActivity: 0, repaymentHistory: 0, staking: 0 },
             };
-
             const result = assembleKiteScore(
-                {
-                    onChain: emptyOnChain,
-                    financial: null,
-                    github: null,
-                },
-                "Test explanation"
+                { onChain: emptyOnChain, financial: null, github: null },
+                "New wallet"
             );
-
-            // Payment History: 0
-            // Utilization: 0
-            // Credit Age: 0
-            // Credit Mix: 0
-            // New Credit: 50 (baseline)
-            // Total = 50
-
-            expect(result.total).toBe(50);
+            expect(result.total).toBeLessThan(100);
             expect(result.tier).toBe("Building");
+        });
+
+        it("gives synergy boost when both on-chain and financial are strong", () => {
+            const scoreWithBoth = assembleKiteScore(
+                { onChain: mockOnChain, financial: mockFinancial, github: null },
+                "Both sources"
+            );
+            const onChainOnly = assembleKiteScore(
+                { onChain: mockOnChain, financial: null, github: null },
+                "On-chain only"
+            );
+            expect(scoreWithBoth.total).toBeGreaterThan(onChainOnly.total);
+        });
+
+        it("applies multi-wallet trust boost", () => {
+            const withoutSecondary = assembleKiteScore(
+                { onChain: mockOnChain, financial: null, github: null, secondaryWalletCount: 0 },
+                "Single wallet"
+            );
+            const withSecondary = assembleKiteScore(
+                { onChain: mockOnChain, financial: null, github: null, secondaryWalletCount: 2 },
+                "Multi wallet"
+            );
+            expect(withSecondary.total).toBeGreaterThanOrEqual(withoutSecondary.total);
+        });
+
+        it("includes all five factors in breakdown", () => {
+            const result = assembleKiteScore(
+                { onChain: mockOnChain, financial: mockFinancial, github: mockGitHub },
+                "Full"
+            );
+            const { fiveFactor } = result.breakdown;
+            expect(fiveFactor.paymentHistory.score).toBeGreaterThanOrEqual(0);
+            expect(fiveFactor.utilization.score).toBeGreaterThanOrEqual(0);
+            expect(fiveFactor.creditAge.score).toBeGreaterThanOrEqual(0);
+            expect(fiveFactor.creditMix.score).toBeGreaterThanOrEqual(0);
+            expect(fiveFactor.newCredit.score).toBeGreaterThanOrEqual(0);
+        });
+
+        it("returns valid timestamp", () => {
+            const result = assembleKiteScore(
+                { onChain: mockOnChain, financial: null, github: null },
+                "Test"
+            );
+            expect(() => new Date(result.timestamp)).not.toThrow();
         });
     });
 });

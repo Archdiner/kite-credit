@@ -89,8 +89,8 @@ async function runVerification() {
     // 4. Calculate Score (Wallet + GitHub)
     console.log("\n🐙 Calculating Score (Wallet + GitHub Mock)...");
     const githubMock = {
-        score: 250, // High GitHub score
-        breakdown: { accountAge: 40, repoPortfolio: 60, commitConsistency: 90, communityTrust: 60 }
+        score: 250,
+        breakdown: { accountAge: 35, repoPortfolio: 50, commitConsistency: 55, communityTrust: 40, codeQuality: 70 }
     };
 
     const kiteScoreWithGithub = assembleKiteScore({

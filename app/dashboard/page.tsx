@@ -12,6 +12,7 @@ import ScoreBreakdownPanel from "@/components/dashboard/ScoreBreakdownPanel";
 import PlaidLinkButton from "@/components/dashboard/PlaidLinkButton";
 import AttestationCard from "@/components/dashboard/AttestationCard";
 import ScoreRadarChart from "@/components/dashboard/ScoreRadarChart";
+import ShareScoreCard from "@/components/dashboard/ShareScoreCard";
 import Link from "next/link";
 import type { KiteScore, ZKAttestation } from "@/types";
 
@@ -108,11 +109,12 @@ function DashboardContent() {
             fetch("/api/github/analyze")
                 .then(res => res.json())
                 .then(data => {
-                    if (data.success && data.data?.data?.login) {
-                        setGithubUser(data.data.data.login);
+                    const login = data.data?.data?.username || data.data?.data?.login;
+                    if (data.success && login) {
+                        setGithubUser(login);
                     }
                 })
-                .catch(() => { /* GitHub is optional, silently fail */ });
+                .catch(() => { /* GitHub is optional */ });
         }
 
         if (authError) {
@@ -581,13 +583,14 @@ function DashboardContent() {
                                     </div>
                                 </div>
 
-                                {/* Recalculate */}
+                                {/* Actions: Share + Recalculate */}
                                 <motion.div
                                     initial={{ opacity: 0 }}
                                     animate={{ opacity: 1 }}
                                     transition={{ delay: 1 }}
-                                    className="text-center pt-4 pb-12"
+                                    className="flex flex-col items-center gap-4 pt-4 pb-12"
                                 >
+                                    <ShareScoreCard score={kiteScore} attestation={attestation} />
                                     <button
                                         onClick={() => setFlowState("connect")}
                                         className="px-8 py-3 bg-white text-slate-900 font-bold tracking-[0.2em] uppercase text-sm rounded-sm hover:bg-sky-50 transition-colors shadow-[0_0_20px_rgba(255,255,255,0.2)]"

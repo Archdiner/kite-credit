@@ -85,18 +85,30 @@ export interface GitHubData {
   publicRepos: number;
   totalStars: number;
   followers: number;
-  recentCommitCount: number; // Renamed from commitsLastYear
+  recentCommitCount: number;
   longestRepoAgeDays: number;
-  recentActiveWeeks: number; // consecutive weeks with commits // Renamed from contributionStreak
+  recentActiveWeeks: number;
+  languageDiversity: number;
+  ownerReputation: number;
+  originalityScore: number;
+  // Code quality proxy signals
+  reposWithReadme: number;
+  reposWithCI: number;
+  totalPRsMerged: number;
+  totalIssuesClosed: number;
+  codeReviewCount: number;
+  avgRepoSize: number;       // KB — proxy for non-trivial projects
+  topRepoTestIndicator: number; // 0-1 fraction of top repos with test dirs/configs
 }
 
 export interface GitHubScore {
   score: number; // 0-300
   breakdown: {
-    accountAge: number;        // 0-50
-    repoPortfolio: number;     // 0-75
-    commitConsistency: number; // 0-100
-    communityTrust: number;    // 0-75
+    accountAge: number;        // 0-40
+    repoPortfolio: number;     // 0-60
+    commitConsistency: number; // 0-70
+    communityTrust: number;    // 0-50
+    codeQuality: number;       // 0-80 — the new quality dimension
   };
 }
 

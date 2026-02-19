@@ -24,6 +24,8 @@ interface AssembleParams {
     onChain: OnChainScore;
     financial: FinancialScore | null;
     github: GitHubScore | null;
+    /** Number of additional verified wallets (beyond primary). Max useful: 2. */
+    secondaryWalletCount?: number;
 }
 
 export function assembleKiteScore(
@@ -53,6 +55,14 @@ export function assembleKiteScore(
     if (totalStrength < 0.3) {
         const dampener = 0.5 + (totalStrength / 0.6); // Scales from 0.5x to 1.0x
         coreScore = Math.floor(coreScore * dampener);
+    }
+
+    // Multi-wallet trust boost: Having verified secondary wallets is a positive
+    // identity signal. Each secondary wallet adds a small multiplier (2.5% each, max 5%).
+    const secondaryCount = Math.min(2, data.secondaryWalletCount ?? 0);
+    if (secondaryCount > 0) {
+        const trustMultiplier = 1 + (secondaryCount * 0.025);
+        coreScore = Math.min(1000, Math.floor(coreScore * trustMultiplier));
     }
 
     // Add GitHub bonus

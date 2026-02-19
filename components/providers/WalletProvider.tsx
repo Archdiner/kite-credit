@@ -1,15 +1,14 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useCallback, type ReactNode } from "react";
 import {
     ConnectionProvider,
     WalletProvider as SolanaWalletProvider,
 } from "@solana/wallet-adapter-react";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
-
+import type { WalletError } from "@solana/wallet-adapter-base";
 import { clusterApiUrl, type Cluster } from "@solana/web3.js";
 
-// Default styles for the wallet adapter modal
 import "@solana/wallet-adapter-react-ui/styles.css";
 
 interface Props {
@@ -17,27 +16,28 @@ interface Props {
 }
 
 export default function WalletProvider({ children }: Props) {
-    // Determine the Solana network. Default to mainnet-beta if not specified.
     const network = (process.env.NEXT_PUBLIC_SOLANA_NETWORK || "mainnet-beta") as Cluster;
 
     const endpoint = useMemo(() => {
         if (process.env.NEXT_PUBLIC_SOLANA_RPC_URL) {
             return process.env.NEXT_PUBLIC_SOLANA_RPC_URL;
         }
-        console.warn("Using public Solana RPC endpoint. Rate limits may apply.");
         return clusterApiUrl(network);
     }, [network]);
 
-    // Wallets are now automatically detected via the Wallet Standard
-    // We don't need to manually instantiate adapters for Phantom or Solflare
-    const wallets = useMemo(
-        () => [],
-        []
-    );
+    const wallets = useMemo(() => [], []);
+
+    const onError = useCallback((error: WalletError) => {
+        console.error("[WalletProvider]", error.name, error.message);
+    }, []);
 
     return (
         <ConnectionProvider endpoint={endpoint}>
-            <SolanaWalletProvider wallets={wallets} autoConnect>
+            <SolanaWalletProvider
+                wallets={wallets}
+                autoConnect={true}
+                onError={onError}
+            >
                 <WalletModalProvider>{children}</WalletModalProvider>
             </SolanaWalletProvider>
         </ConnectionProvider>

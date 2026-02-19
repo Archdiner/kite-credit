@@ -21,7 +21,7 @@ import { getConnectedSources } from "@/lib/scoring";
 import { generateAttestation } from "@/lib/attestation";
 import { successResponse, errorResponse } from "@/lib/api-utils";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { getUserFromToken, getConnection, decryptToken, saveScore } from "@/lib/auth";
+import { getUserFromToken, getConnection, decryptToken, saveScore, upsertConnection } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
     try {
@@ -156,12 +156,11 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // 4. GitHub Bonus (Optional)
+        // 4. GitHub Bonus (Optional) — with 24h data cache
         let githubScore = null;
         if (includeGithub) {
             let githubToken = cookieStore.get("github_token")?.value;
 
-            // If no cookie, try loading from DB
             if (!githubToken && userId) {
                 try {
                     const ghConn = await getConnection(userId, "github");
@@ -175,11 +174,36 @@ export async function POST(req: NextRequest) {
 
             if (githubToken) {
                 try {
-                    const githubData = await fetchGitHubData(githubToken);
+                    // Check for cached GitHubData (24h TTL) to avoid hitting API every time
+                    let githubData = null;
+                    if (userId) {
+                        const ghConn = await getConnection(userId, "github");
+                        const cached = ghConn?.metadata?.github_data;
+                        const cachedAt = ghConn?.metadata?.github_data_cached_at;
+                        if (cached && cachedAt) {
+                            const ageHrs = (Date.now() - new Date(cachedAt as string).getTime()) / (1000 * 60 * 60);
+                            if (ageHrs < 24) {
+                                githubData = cached;
+                            }
+                        }
+                    }
+
+                    if (!githubData) {
+                        githubData = await fetchGitHubData(githubToken);
+                        // Cache the data for next time
+                        if (userId) {
+                            try {
+                                await upsertConnection(userId, "github", githubData.username, null, {
+                                    github_data: githubData,
+                                    github_data_cached_at: new Date().toISOString(),
+                                });
+                            } catch { /* Non-fatal cache write */ }
+                        }
+                    }
+
                     githubScore = scoreGitHub(githubData);
                 } catch (error) {
                     console.error("[score] GitHub fetch failed:", error);
-                    // Non-fatal: score continues without GitHub bonus
                 }
             }
         }
@@ -218,11 +242,24 @@ Provide a 2-sentence explanation of their creditworthiness based heavily on thei
             }
         }
 
+        // 5b. Count secondary wallets for trust boost
+        let secondaryWalletCount = 0;
+        if (userId) {
+            try {
+                const walletConn = await getConnection(userId, "solana_wallet");
+                const wallets = walletConn?.metadata?.wallets;
+                if (Array.isArray(wallets)) {
+                    secondaryWalletCount = Math.max(0, wallets.length - 1);
+                }
+            } catch { /* Non-fatal */ }
+        }
+
         // 6. Assemble Final Score
         const kiteScore = assembleKiteScore({
             onChain: onChainScore,
             financial: financialScore,
             github: githubScore,
+            secondaryWalletCount,
         }, explanation);
 
         // 7. Generate ZK Attestation

@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import type { KiteScore, ScoreTier } from "@/types";
+import { getTier } from "@/lib/scoring";
 
 const TIER_CONFIG: Record<ScoreTier, { gradient: string; glow: string; label: string }> = {
     Building: {
@@ -26,120 +28,186 @@ const TIER_CONFIG: Record<ScoreTier, { gradient: string; glow: string; label: st
     },
 };
 
-export default function ScoreDisplay({ score }: { score: KiteScore }) {
-    const config = TIER_CONFIG[score.tier];
-    const percentage = (score.total / 1000) * 100;
+type ViewMode = "crypto" | "dev" | "unified";
 
-    // SVG ring parameters
-    const size = 280;
-    const strokeWidth = 12;
+export default function ScoreDisplay({ score }: { score: KiteScore }) {
+    const [mode, setMode] = useState<ViewMode>("crypto");
+
+    const cryptoScoreRaw = Math.max(0, score.total - (score.githubBonus || 0));
+    const devScoreRaw = score.breakdown.github ? score.breakdown.github.score : 0;
+    const devScoreNormalized = Math.min(1000, Math.floor((devScoreRaw / 300) * 1000));
+    const unifiedScoreRaw = score.breakdown.github
+        ? Math.floor((cryptoScoreRaw * 0.8) + (devScoreNormalized * 0.2))
+        : cryptoScoreRaw;
+
+    let currentScore = cryptoScoreRaw;
+    if (mode === "dev") currentScore = devScoreNormalized;
+    else if (mode === "unified") currentScore = unifiedScoreRaw;
+
+    const currentTier = getTier(currentScore);
+    const config = TIER_CONFIG[currentTier];
+    const percentage = (currentScore / 1000) * 100;
+
+    const size = 260;
+    const strokeWidth = 10;
     const radius = (size - strokeWidth) / 2;
     const circumference = 2 * Math.PI * radius;
     const offset = circumference - (percentage / 100) * circumference;
 
+    const hasGitHub = !!score.breakdown.github;
+
     return (
-        <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.8 }}
-            className="flex flex-col md:flex-row items-center gap-10 md:gap-16"
-        >
-            {/* Score Ring */}
-            <div className="relative">
-                {/* Glow behind ring */}
-                <div
-                    className="absolute inset-0 rounded-full blur-3xl opacity-40"
-                    style={{ background: `radial-gradient(circle, ${config.glow}, transparent 70%)` }}
+        <div className="flex flex-col gap-5">
+            {/* Mode Tabs — scrollable on mobile, no overflow clipping */}
+            <div className="flex gap-1 p-1 bg-white/5 rounded-xl border border-white/10 w-full max-w-xs mx-auto md:mx-0 overflow-x-auto">
+                <TabButton
+                    active={mode === "crypto"}
+                    onClick={() => setMode("crypto")}
+                    label="Crypto"
                 />
-
-                <svg width={size} height={size} className="relative z-10 -rotate-90">
-                    {/* Background ring */}
-                    <circle
-                        cx={size / 2}
-                        cy={size / 2}
-                        r={radius}
-                        fill="none"
-                        stroke="rgba(255,255,255,0.06)"
-                        strokeWidth={strokeWidth}
-                    />
-                    {/* Progress ring */}
-                    <motion.circle
-                        cx={size / 2}
-                        cy={size / 2}
-                        r={radius}
-                        fill="none"
-                        strokeWidth={strokeWidth}
-                        strokeLinecap="round"
-                        strokeDasharray={circumference}
-                        initial={{ strokeDashoffset: circumference }}
-                        animate={{ strokeDashoffset: offset }}
-                        transition={{ duration: 2, ease: "easeOut", delay: 0.3 }}
-                        className={`stroke-current`}
-                        style={{
-                            filter: `drop-shadow(0 0 8px ${config.glow})`,
-                        }}
-                        stroke="url(#scoreGradient)"
-                    />
-                    <defs>
-                        <linearGradient id="scoreGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" stopColor="#f97316" />
-                            <stop offset="50%" stopColor="#38bdf8" />
-                            <stop offset="100%" stopColor="#8b5cf6" />
-                        </linearGradient>
-                    </defs>
-                </svg>
-
-                {/* Center content */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center z-20">
-                    <motion.span
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: 1 }}
-                        className="text-6xl font-black text-white tracking-tight"
-                    >
-                        {score.total}
-                    </motion.span>
-                    <span className="text-xs text-white/40 font-mono tracking-widest mt-1">/ 1000</span>
-                </div>
+                <TabButton
+                    active={mode === "dev"}
+                    onClick={() => setMode("dev")}
+                    disabled={!hasGitHub}
+                    label={hasGitHub ? "Developer" : "Dev ✦"}
+                    activeClass="bg-indigo-500/20 text-indigo-300 border border-indigo-500/20"
+                />
+                <TabButton
+                    active={mode === "unified"}
+                    onClick={() => setMode("unified")}
+                    disabled={!hasGitHub}
+                    label="Unified"
+                    activeClass="bg-emerald-500/20 text-emerald-300 border border-emerald-500/20"
+                />
             </div>
 
-            {/* Score Info */}
-            <div className="text-center md:text-left">
+            <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12">
+                {/* Score Ring */}
+                <div className="relative flex-shrink-0">
+                    <div
+                        className="absolute inset-0 rounded-full blur-3xl transition-opacity duration-1000"
+                        style={{
+                            background: `radial-gradient(circle, ${config.glow}, transparent 70%)`,
+                            opacity: mode === "dev" ? 0.6 : 0.4,
+                        }}
+                    />
+
+                    <svg width={size} height={size} className="relative z-10 -rotate-90">
+                        <circle
+                            cx={size / 2} cy={size / 2} r={radius}
+                            fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={strokeWidth}
+                        />
+                        <motion.circle
+                            cx={size / 2} cy={size / 2} r={radius}
+                            fill="none" strokeWidth={strokeWidth} strokeLinecap="round"
+                            strokeDasharray={circumference}
+                            initial={{ strokeDashoffset: circumference }}
+                            animate={{ strokeDashoffset: offset }}
+                            transition={{ duration: 1.5, ease: "easeOut" }}
+                            className={`stroke-current ${mode === "dev" ? "text-indigo-400" : mode === "unified" ? "text-emerald-400" : "text-sky-400"}`}
+                            style={{ filter: `drop-shadow(0 0 8px ${config.glow})` }}
+                        />
+                    </svg>
+
+                    <div className="absolute inset-0 flex flex-col items-center justify-center z-20">
+                        <motion.span
+                            key={currentScore}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="text-5xl md:text-6xl font-black text-white tracking-tight"
+                        >
+                            {currentScore}
+                        </motion.span>
+                        <span className="text-[10px] text-white/40 font-mono tracking-widest mt-1">
+                            / 1000
+                        </span>
+                        {mode === "dev" && (
+                            <span className="mt-2 px-2 py-0.5 bg-white/5 rounded text-[10px] text-white/40 font-mono border border-white/5">
+                                Raw: {devScoreRaw}/300
+                            </span>
+                        )}
+                        {mode === "unified" && (
+                            <span className="mt-2 px-2 py-0.5 bg-white/5 rounded text-[10px] text-white/40 font-mono border border-white/5">
+                                80% Crypto · 20% Dev
+                            </span>
+                        )}
+                    </div>
+                </div>
+
+                {/* Score Info */}
                 <motion.div
+                    key={mode}
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.5 }}
+                    transition={{ duration: 0.3 }}
+                    className="text-center md:text-left min-w-0"
                 >
-                    <p className="text-xs text-white/40 font-mono tracking-[0.3em] uppercase mb-2">
-                        Credit Tier
+                    <p className="text-[10px] text-white/40 font-mono tracking-[0.3em] uppercase mb-2">
+                        {mode === "dev" ? "Reputation Tier" : mode === "unified" ? "Combined Tier" : "Credit Tier"}
                     </p>
-                    <div className="flex items-center gap-3 mb-6">
-                        <div className={`w-4 h-4 rotate-45 bg-gradient-to-br ${config.gradient}`} />
-                        <h2 className="text-4xl md:text-5xl font-black text-white tracking-tight uppercase">
+                    <div className="flex items-center gap-3 mb-5 justify-center md:justify-start">
+                        <div className={`w-3.5 h-3.5 rotate-45 bg-gradient-to-br ${config.gradient} flex-shrink-0`} />
+                        <h2 className="text-3xl md:text-4xl font-black text-white tracking-tight uppercase">
                             {config.label}
                         </h2>
                     </div>
 
-                    {/* Data sources badge */}
-                    <div className="flex flex-wrap gap-2">
-                        {score.breakdown.onChain && (
-                            <span className="px-3 py-1 bg-sky-500/10 border border-sky-400/20 rounded-full text-xs text-sky-300 font-mono tracking-wider">
-                                On-Chain ✓
-                            </span>
+                    {/* Data source badges */}
+                    <div className="flex flex-wrap gap-2 justify-center md:justify-start">
+                        {(mode === "crypto" || mode === "unified") && score.breakdown.onChain && (
+                            <SourceBadge label="On-Chain" color="sky" />
                         )}
-                        {score.breakdown.financial && (
-                            <span className="px-3 py-1 bg-orange-500/10 border border-orange-400/20 rounded-full text-xs text-orange-300 font-mono tracking-wider">
-                                Financial ✓
-                            </span>
+                        {(mode === "crypto" || mode === "unified") && score.breakdown.financial && (
+                            <SourceBadge label="Financial" color="orange" />
                         )}
-                        {score.breakdown.github && (
-                            <span className="px-3 py-1 bg-indigo-500/10 border border-indigo-400/20 rounded-full text-xs text-indigo-300/60 font-mono tracking-wider">
-                                GitHub Bonus ✓
-                            </span>
+                        {(mode === "dev" || mode === "unified") && hasGitHub && (
+                            <SourceBadge
+                                label={mode === "dev" ? "GitHub Verified" : "GitHub (20%)"}
+                                color="indigo"
+                            />
                         )}
                     </div>
                 </motion.div>
             </div>
-        </motion.div>
+        </div>
+    );
+}
+
+function TabButton({
+    active, onClick, disabled, label, activeClass,
+}: {
+    active: boolean;
+    onClick: () => void;
+    disabled?: boolean;
+    label: string;
+    activeClass?: string;
+}) {
+    return (
+        <button
+            onClick={onClick}
+            disabled={disabled}
+            className={`flex-1 min-w-0 px-3 py-2 rounded-lg text-[11px] font-bold tracking-wider uppercase transition-all truncate ${
+                active
+                    ? (activeClass || "bg-white/10 text-white shadow-lg")
+                    : disabled
+                        ? "text-white/15 cursor-not-allowed"
+                        : "text-white/40 hover:text-white/60"
+            }`}
+        >
+            {label}
+        </button>
+    );
+}
+
+function SourceBadge({ label, color }: { label: string; color: string }) {
+    const colorMap: Record<string, string> = {
+        sky: "bg-sky-500/10 border-sky-400/20 text-sky-300",
+        orange: "bg-orange-500/10 border-orange-400/20 text-orange-300",
+        indigo: "bg-indigo-500/10 border-indigo-400/20 text-indigo-300",
+    };
+    return (
+        <span className={`px-2.5 py-1 border rounded-full text-[10px] font-mono tracking-wider ${colorMap[color] || colorMap.sky}`}>
+            {label} ✓
+        </span>
     );
 }
