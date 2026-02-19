@@ -19,7 +19,7 @@ import type { KiteScore, ZKAttestation } from "@/types";
 type FlowState = "connect" | "loading" | "results";
 
 function DashboardContent() {
-    const { publicKey, connected, signMessage } = useWallet();
+    const { publicKey, connected, signMessage, wallet, connect, connecting } = useWallet();
     const { setVisible } = useWalletModal();
     const { user, loading: authLoading, signOut, accessToken } = useAuth();
     const router = useRouter();
@@ -127,6 +127,15 @@ function DashboardContent() {
             setError(messages[authError] || `GitHub auth error: ${authError}`);
         }
     }, [searchParams, githubUser]);
+
+    // When a wallet is selected but not connected, explicitly trigger connect().
+    // This handles the race condition where the modal's select() + autoConnect
+    // effect don't fire in the right order.
+    useEffect(() => {
+        if (wallet && !connected && !connecting) {
+            connect().catch(() => { /* Will be caught by onError in WalletProvider */ });
+        }
+    }, [wallet, connected, connecting, connect]);
 
     // Persist wallet connection when it changes
     useEffect(() => {
