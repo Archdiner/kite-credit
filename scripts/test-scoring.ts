@@ -7,9 +7,10 @@ const mockOnChain = (age: number, txs: number, score: number): OnChainScore => (
     score,
     breakdown: {
         walletAge: age,
-        deFiActivity: Math.min(190, txs * 2),
+        deFiActivity: Math.min(165, txs * 2),
         repaymentHistory: Math.min(125, txs),
         staking: Math.min(60, txs / 2),
+        stablecoinCapital: 0,
     }
 });
 

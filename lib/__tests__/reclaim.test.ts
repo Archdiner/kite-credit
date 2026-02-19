@@ -63,7 +63,7 @@ describe("attestation", () => {
         total: 750,
         tier: "Strong",
         breakdown: {
-            onChain: { score: 200, breakdown: { walletAge: 50, deFiActivity: 75, repaymentHistory: 50, staking: 25 } },
+            onChain: { score: 200, breakdown: { walletAge: 50, deFiActivity: 75, repaymentHistory: 50, staking: 25, stablecoinCapital: 0 } },
             github: { score: 100, breakdown: { accountAge: 20, repoPortfolio: 20, commitConsistency: 20, communityTrust: 15, codeQuality: 25 } },
             financial: { score: 250, breakdown: { balanceHealth: 100, incomeConsistency: 100, verificationBonus: 50 }, verified: true },
             fiveFactor: {

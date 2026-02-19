@@ -107,7 +107,7 @@ Provide a 2-sentence explanation of their developer reputation and technical cre
             total: devScoreNormalized,
             tier,
             breakdown: {
-                onChain: { score: 0, breakdown: { walletAge: 0, deFiActivity: 0, repaymentHistory: 0, staking: 0 } },
+                onChain: { score: 0, breakdown: { walletAge: 0, deFiActivity: 0, repaymentHistory: 0, staking: 0, stablecoinCapital: 0 } },
                 financial: null,
                 github: githubScore,
                 fiveFactor: emptyFiveFactor,

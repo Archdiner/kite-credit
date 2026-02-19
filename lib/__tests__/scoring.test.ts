@@ -6,9 +6,10 @@ describe("Kite Scoring Engine v3", () => {
         score: 500,
         breakdown: {
             walletAge: 125,
-            deFiActivity: 190,
+            deFiActivity: 165,
             repaymentHistory: 125,
             staking: 60,
+            stablecoinCapital: 25,
         },
     };
 
@@ -71,7 +72,7 @@ describe("Kite Scoring Engine v3", () => {
         it("applies trust dampener for fresh empty wallets", () => {
             const emptyOnChain: OnChainScore = {
                 score: 0,
-                breakdown: { walletAge: 0, deFiActivity: 0, repaymentHistory: 0, staking: 0 },
+                breakdown: { walletAge: 0, deFiActivity: 0, repaymentHistory: 0, staking: 0, stablecoinCapital: 0 },
             };
             const result = assembleKiteScore(
                 { onChain: emptyOnChain, financial: null, github: null },
