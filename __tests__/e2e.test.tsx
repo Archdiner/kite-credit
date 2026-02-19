@@ -51,6 +51,7 @@ function makeOnChainData(overrides: Partial<OnChainData> = {}): OnChainData {
         stakingActive: true,
         stakingDurationDays: 90,
         solBalance: 5.5,
+        stablecoinBalance: 0,
         ...overrides,
     };
 }

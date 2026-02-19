@@ -224,7 +224,7 @@ export async function POST(req: NextRequest) {
                 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
                 const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
-                let promptContext = `Wallet: ${walletAddress} (Age: ${onChainData.walletAgeDays} days, DeFi interactions: ${onChainData.deFiInteractions.length}, Balance: ${onChainData.solBalance} SOL)\n`;
+                let promptContext = `Wallet: ${walletAddress} (Age: ${onChainData.walletAgeDays} days, DeFi interactions: ${onChainData.deFiInteractions.length}, Balance: ${onChainData.solBalance} SOL, Stablecoins: $${onChainData.stablecoinBalance.toFixed(2)} USDC/USDT)\n`;
 
                 if (financialScore) {
                     promptContext += `Financial: ${financialContext}\n`;

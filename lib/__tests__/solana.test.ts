@@ -14,6 +14,7 @@ function makeData(overrides: Partial<OnChainData> = {}): OnChainData {
         stakingActive: false,
         stakingDurationDays: 0,
         solBalance: 0,
+        stablecoinBalance: 0,
         ...overrides,
     };
 }
@@ -36,7 +37,7 @@ describe("scoreOnChain", () => {
         expect(day365.breakdown.walletAge).toBeLessThanOrEqual(125);
     });
 
-    it("caps DeFi activity at 190", () => {
+    it("caps DeFi activity at 165", () => {
         const maxed = scoreOnChain(
             makeData({
                 deFiInteractions: [
@@ -48,7 +49,7 @@ describe("scoreOnChain", () => {
                 ],
             })
         );
-        expect(maxed.breakdown.deFiActivity).toBeLessThanOrEqual(190);
+        expect(maxed.breakdown.deFiActivity).toBeLessThanOrEqual(165);
     });
 
     it("scores staking up to 60", () => {
@@ -77,6 +78,18 @@ describe("scoreOnChain", () => {
         expect(maxed.score).toBeLessThanOrEqual(500);
     });
 
+    it("scores stablecoin capital up to 25", () => {
+        const none = scoreOnChain(makeData({ stablecoinBalance: 0 }));
+        expect(none.breakdown.stablecoinCapital).toBe(0);
+
+        const small = scoreOnChain(makeData({ stablecoinBalance: 500 }));
+        expect(small.breakdown.stablecoinCapital).toBeGreaterThan(0);
+        expect(small.breakdown.stablecoinCapital).toBeLessThanOrEqual(25);
+
+        const large = scoreOnChain(makeData({ stablecoinBalance: 100000 }));
+        expect(large.breakdown.stablecoinCapital).toBe(25);
+    });
+
     it("produces a score object with all required fields", () => {
         const result = scoreOnChain(makeData({ walletAgeDays: 200 }));
         expect(result).toHaveProperty("score");
@@ -85,5 +98,6 @@ describe("scoreOnChain", () => {
         expect(result.breakdown).toHaveProperty("deFiActivity");
         expect(result.breakdown).toHaveProperty("repaymentHistory");
         expect(result.breakdown).toHaveProperty("staking");
+        expect(result.breakdown).toHaveProperty("stablecoinCapital");
     });
 });

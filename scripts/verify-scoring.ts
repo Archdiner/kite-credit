@@ -19,7 +19,8 @@ const MOCK_ON_CHAIN_DATA = {
     ],
     stakingActive: true,
     stakingDurationDays: 365,
-    solBalance: 0
+    solBalance: 0,
+    stablecoinBalance: 0,
 };
 
 async function runVerification() {

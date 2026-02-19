@@ -25,6 +25,12 @@ const KNOWN_DEFI_PROGRAMS: Record<string, string> = {
     "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc": "orca",
 };
 
+// Trusted stablecoin mints (USDC & USDT only — established, never depegged)
+const STABLECOIN_MINTS: Record<string, { symbol: string; decimals: number }> = {
+    "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v": { symbol: "USDC", decimals: 6 },
+    "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB": { symbol: "USDT", decimals: 6 },
+};
+
 // Governance / DAO program IDs
 const DAO_PROGRAMS = [
     "GovER5Lthms3bLBqWub97yVrMmEogzX7xNjdXpPPCVZw", // SPL Governance
@@ -211,6 +217,41 @@ export async function getStakingInfo(
 }
 
 // ---------------------------------------------------------------------------
+// Stablecoin balance (USDC + USDT)
+// ---------------------------------------------------------------------------
+
+export async function getStablecoinBalance(
+    connection: Connection,
+    address: string
+): Promise<number> {
+    const pubkey = new PublicKey(address);
+    let totalUsd = 0;
+
+    // Query per mint to avoid fetching the entire token account list, which
+    // can exceed the JSON response size limit for wallets with thousands of tokens.
+    const mints = Object.keys(STABLECOIN_MINTS);
+
+    const results = await Promise.allSettled(
+        mints.map((mint) =>
+            connection.getParsedTokenAccountsByOwner(pubkey, {
+                mint: new PublicKey(mint),
+            })
+        )
+    );
+
+    for (const result of results) {
+        if (result.status !== "fulfilled") continue;
+
+        for (const { account } of result.value.value) {
+            const amount = Number(account.data.parsed?.info?.tokenAmount?.uiAmount ?? 0);
+            if (amount >= 1) totalUsd += amount;
+        }
+    }
+
+    return totalUsd;
+}
+
+// ---------------------------------------------------------------------------
 // Full analysis
 // ---------------------------------------------------------------------------
 
@@ -225,8 +266,12 @@ export async function analyzeSolanaData(address: string): Promise<OnChainData> {
     const deFiInteractions = analyzeDeFiInteractions(txs);
     const totalTransactions = txs.filter((tx) => tx !== null).length;
 
-    const balanceLamports = await connection.getBalance(new PublicKey(address));
-    const solBalance = balanceLamports / 1000000000; // 1e9 lamports = 1 SOL
+    // These two are lightweight single-call fetches, safe to parallelize
+    const [balanceLamports, stablecoinBalance] = await Promise.all([
+        connection.getBalance(new PublicKey(address)),
+        getStablecoinBalance(connection, address),
+    ]);
+    const solBalance = balanceLamports / 1000000000;
 
     return {
         walletAddress: address,
@@ -236,6 +281,7 @@ export async function analyzeSolanaData(address: string): Promise<OnChainData> {
         stakingActive: staking.active,
         stakingDurationDays: staking.durationDays,
         solBalance,
+        stablecoinBalance,
     };
 }
 
@@ -245,7 +291,6 @@ export async function analyzeSolanaData(address: string): Promise<OnChainData> {
 
 export function scoreOnChain(data: OnChainData): OnChainScore {
     // Wallet age: 0-125
-    // 0 days = 0, 30 days = 30, 180 days = 75, 365+ days = 125
     const walletAge = Math.min(125, Math.floor(
         data.walletAgeDays <= 0
             ? 0
@@ -256,24 +301,22 @@ export function scoreOnChain(data: OnChainData): OnChainScore {
                     : 75 + ((Math.min(data.walletAgeDays, 730) - 180) / 550) * 50
     ));
 
-    // DeFi activity: 0-190
-    // Number of unique protocols interacted with + volume of interactions
+    // DeFi activity: 0-165 (reduced from 190 to make room for stablecoin capital)
     const uniqueProtocols = data.deFiInteractions.length;
     const totalDeFiTxs = data.deFiInteractions.reduce((sum, d) => sum + d.count, 0);
-    const protocolDiversity = Math.min(65, uniqueProtocols * 16); // max 4+ protocols = 64
-    const deFiVolume = Math.min(125, Math.floor(
+    const protocolDiversity = Math.min(55, uniqueProtocols * 14);
+    const deFiVolume = Math.min(110, Math.floor(
         totalDeFiTxs <= 0
             ? 0
             : totalDeFiTxs < 10
-                ? (totalDeFiTxs / 10) * 40
+                ? (totalDeFiTxs / 10) * 35
                 : totalDeFiTxs < 50
-                    ? 40 + ((totalDeFiTxs - 10) / 40) * 50
-                    : 90 + ((Math.min(totalDeFiTxs, 200) - 50) / 150) * 35
+                    ? 35 + ((totalDeFiTxs - 10) / 40) * 45
+                    : 80 + ((Math.min(totalDeFiTxs, 200) - 50) / 150) * 30
     ));
-    const deFiActivity = Math.min(190, Math.floor(protocolDiversity + deFiVolume));
+    const deFiActivity = Math.min(165, Math.floor(protocolDiversity + deFiVolume));
 
     // Repayment history: 0-125
-    // For MVP, we approximate via successful DeFi tx ratio and general tx success
     const repaymentHistory = Math.min(125, Math.floor(
         data.totalTransactions <= 0
             ? 0
@@ -291,7 +334,25 @@ export function scoreOnChain(data: OnChainData): OnChainScore {
             12 + (Math.min(data.stakingDurationDays, 365) / 365) * 48
         ));
 
-    const total = walletAge + deFiActivity + repaymentHistory + stakingScore;
+    // Stablecoin capital: 0-25
+    // Holding USDC/USDT is the closest on-chain proxy to "money in the bank."
+    // Hard to game (requires real capital), fills the gap for users who don't stake
+    // but have significant capital on-chain.
+    // $0 = 0, $100 = 5, $1k = 12, $10k = 20, $50k+ = 25
+    const stableUsd = data.stablecoinBalance ?? 0;
+    const stablecoinCapital = Math.min(25, Math.floor(
+        stableUsd < 1
+            ? 0
+            : stableUsd < 100
+                ? (stableUsd / 100) * 5
+                : stableUsd < 1000
+                    ? 5 + ((stableUsd - 100) / 900) * 7
+                    : stableUsd < 10000
+                        ? 12 + ((stableUsd - 1000) / 9000) * 8
+                        : 20 + ((Math.min(stableUsd, 50000) - 10000) / 40000) * 5
+    ));
+
+    const total = walletAge + deFiActivity + repaymentHistory + stakingScore + stablecoinCapital;
 
     return {
         score: Math.min(500, total),
@@ -300,6 +361,7 @@ export function scoreOnChain(data: OnChainData): OnChainScore {
             deFiActivity,
             repaymentHistory,
             staking: stakingScore,
+            stablecoinCapital,
         },
     };
 }

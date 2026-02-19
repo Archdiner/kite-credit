@@ -20,6 +20,7 @@ export interface OnChainData {
   stakingActive: boolean;
   stakingDurationDays: number;
   solBalance: number;
+  stablecoinBalance: number; // USD-denominated sum of USDC + USDT holdings
 }
 
 // ---------------------------------------------------------------------------
@@ -68,10 +69,11 @@ export interface FiveFactorBreakdown {
 export interface OnChainScore {
   score: number; // 0-500
   breakdown: {
-    walletAge: number;       // 0-125
-    deFiActivity: number;    // 0-190
-    repaymentHistory: number; // 0-125
-    staking: number;         // 0-60
+    walletAge: number;          // 0-125
+    deFiActivity: number;       // 0-165
+    repaymentHistory: number;   // 0-125
+    staking: number;            // 0-60
+    stablecoinCapital: number;  // 0-25
   };
 }
 

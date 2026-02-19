@@ -186,8 +186,11 @@ function calculateFiveFactorScore(
     // -------------------------------------------------------------------------
     // 2. Utilization (30%) - Max 300 pts
     // -------------------------------------------------------------------------
+    // Combine staking + stablecoin capital for a more complete on-chain capital picture.
+    // Staking alone penalizes users who hold stablecoins but don't stake SOL.
+    const onChainCapital = onChain.breakdown.staking + onChain.breakdown.stablecoinCapital;
     const utilizationScore = blend(
-        onChain.breakdown.staking, 60,
+        onChainCapital, 85,
         financial?.breakdown.balanceHealth ?? 0, 250,
         300
     );
@@ -211,7 +214,7 @@ function calculateFiveFactorScore(
     // -------------------------------------------------------------------------
     // 4. Credit Mix (10%) - Max 100 pts
     // -------------------------------------------------------------------------
-    let creditMixScore = Math.floor((onChain.breakdown.deFiActivity / 190) * 100 * weights.onChain);
+    let creditMixScore = Math.floor((onChain.breakdown.deFiActivity / 165) * 100 * weights.onChain);
     if (financial && weights.financial > 0.5) {
         // Proxy mix for TradFi: Did they connect a major bank?
         // verificationBonus captures this.
