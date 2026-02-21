@@ -16,8 +16,8 @@ export async function POST(req: NextRequest) {
             return errorResponse("Email, password, and name are required", 400);
         }
 
-        if (password.length < 6) {
-            return errorResponse("Password must be at least 6 characters", 400);
+        if (password.length < 8) {
+            return errorResponse("Password must be at least 8 characters", 400);
         }
 
         const supabase = createServerSupabaseClient();

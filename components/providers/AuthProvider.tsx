@@ -140,34 +140,34 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     // Sign up via API route
     const signUp = useCallback(async (email: string, password: string, name: string) => {
         try {
-            const res = await fetch("/api/auth/signup", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email, password, name }),
+            const supabase = createBrowserSupabaseClient();
+            const { data, error } = await supabase.auth.signUp({
+                email,
+                password,
+                options: {
+                    data: { display_name: name },
+                    emailRedirectTo: `${window.location.origin}/auth/callback`,
+                },
             });
 
-            const data = await res.json();
-
-            if (!data.success) {
-                return { error: data.error || "Signup failed" };
+            if (error) {
+                if (error.message.toLowerCase().includes("already")) {
+                    return { error: "An account with this email already exists" };
+                }
+                return { error: error.message };
             }
 
-            // If we got a session back, set it in Supabase client for persistence
-            if (data.data?.session) {
-                const supabase = createBrowserSupabaseClient();
-                await supabase.auth.setSession({
-                    access_token: data.data.session.access_token,
-                    refresh_token: data.data.session.refresh_token,
-                });
-
-                setUser({
-                    id: data.data.user.id,
-                    email: data.data.user.email,
-                    name: data.data.user.name || name,
-                });
-                setAccessToken(data.data.session.access_token);
+            // No session means Supabase requires email verification
+            if (!data.session) {
+                return { needsVerification: true };
             }
 
+            setUser({
+                id: data.user!.id,
+                email: data.user!.email!,
+                name,
+            });
+            setAccessToken(data.session.access_token);
             return {};
         } catch {
             return { error: "Signup failed. Please check your connection." };
