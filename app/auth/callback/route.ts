@@ -11,8 +11,8 @@
 //   - OAuth providers (if added in future)
 //
 // Set the following in your Supabase project:
-//   Auth > URL Configuration > Site URL: https://kite.credit
-//   Auth > URL Configuration > Redirect URLs: https://kite.credit/auth/callback
+//   Auth > URL Configuration > Site URL: https://kitecredit.xyz
+//   Auth > URL Configuration > Redirect URLs: https://kitecredit.xyz/auth/callback
 // ---------------------------------------------------------------------------
 
 import { NextRequest, NextResponse } from "next/server";

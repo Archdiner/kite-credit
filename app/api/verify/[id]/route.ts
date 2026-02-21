@@ -5,7 +5,7 @@
 // to programmatically verify a Kite Score without trusting the score holder.
 //
 // Usage:
-//   GET https://kite.credit/api/verify/abc123
+//   GET https://kitecredit.xyz/api/verify/abc123
 //
 // Response (valid):
 //   {

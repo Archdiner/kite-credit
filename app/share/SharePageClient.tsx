@@ -91,7 +91,7 @@ export default function SharePageClient({ data, proofValid, shareId }: Props) {
     const isVerified = proofValid === true;
     const hasVerification = proofValid !== undefined;
 
-    const appUrl = typeof window !== "undefined" ? window.location.origin : "https://kite.credit";
+    const appUrl = typeof window !== "undefined" ? window.location.origin : "https://kitecredit.xyz";
     const apiUrl = shareId ? `${appUrl}/api/verify/${shareId}` : null;
 
     return (

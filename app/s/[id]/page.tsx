@@ -36,7 +36,7 @@ export async function generateMetadata({
     const data = await getShareData(id);
     if (!data) return FALLBACK_META;
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://kite.credit";
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://kitecredit.xyz";
     const title = `Kite Score: ${data.cryptoScore}/1000 — ${data.cryptoTier}`;
     const description = data.devScore
         ? `Crypto: ${data.cryptoScore}/1000 (${data.cryptoTier}) | Developer: ${data.devScore}/1000 (${data.devTier}) — Verified on-chain credit score`

@@ -15,7 +15,7 @@ const inter = Inter({
     subsets: ["latin"],
 });
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://kite.credit";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://kitecredit.xyz";
 
 export const viewport: Viewport = {
     width: "device-width",
