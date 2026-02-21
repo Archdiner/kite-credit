@@ -1,31 +1,57 @@
 // ---------------------------------------------------------------------------
-// ZK Attestation generation
+// Score attestation generation
 // ---------------------------------------------------------------------------
-// Generates a ZK attestation from the Kite Score. This is the shareable
-// proof that a user has achieved a certain credit tier without revealing
-// the underlying data.
+// Generates a signed attestation from the Kite Score. This is the portable
+// credential a user can share with lenders, landlords, or DeFi protocols
+// to prove their tier without revealing the underlying data.
+//
+// Implementation note:
+//   The proof field is an HMAC-SHA256 signature over deterministic score data.
+//   "ZK Attestation" is the product-facing name used in the UI — actual
+//   zero-knowledge proofs live in lib/reclaim.ts (bank data verification).
+//   Attestation consumers should verify the HMAC server-side using the shared
+//   ATTESTATION_SECRET before trusting the payload.
 // ---------------------------------------------------------------------------
 
-import type { KiteScore, ZKAttestation, ScoreTier } from "@/types";
+import type { KiteScore, SignedAttestation, ScoreTier } from "@/types";
 import { getConnectedSources } from "@/lib/scoring";
 import { createHmac } from "node:crypto";
 
-export function generateAttestation(score: KiteScore): ZKAttestation {
+function getAttestationSecret(): string {
+    const secret = process.env.ATTESTATION_SECRET;
+    const defaultSecret = "dev-attestation-secret-change-me";
+
+    if (!secret || secret === defaultSecret) {
+        if (process.env.NODE_ENV === "production") {
+            // Throwing here prevents the server from starting with a forged-proof risk.
+            throw new Error(
+                "[attestation] ATTESTATION_SECRET is missing or set to the default value. " +
+                "All attestations would be forgeable. Set a random 32-byte hex value in your environment."
+            );
+        }
+        if (process.env.NODE_ENV !== "test") {
+            console.warn(
+                "[attestation] WARNING: Using default ATTESTATION_SECRET. " +
+                "Run `openssl rand -hex 32` and set ATTESTATION_SECRET before deploying to production."
+            );
+        }
+        return defaultSecret;
+    }
+
+    return secret;
+}
+
+export function generateAttestation(score: KiteScore): SignedAttestation {
     const connectedSources = getConnectedSources(score.breakdown);
 
-    // Generate a deterministic proof hash from score data
     const proofData = JSON.stringify({
         total: score.total,
         tier: score.tier,
         sources: connectedSources,
         timestamp: score.timestamp,
-
-
     });
 
-    // HMAC-SHA256 signing
-    // Ensure ATTESTATION_SECRET is set in production!
-    const secret = process.env.ATTESTATION_SECRET || "dev-attestation-secret-change-me";
+    const secret = getAttestationSecret();
     const hmac = createHmac("sha256", secret);
     hmac.update(proofData);
     const proofHex = hmac.digest("hex");
@@ -41,12 +67,11 @@ export function generateAttestation(score: KiteScore): ZKAttestation {
 }
 
 // ---------------------------------------------------------------------------
-// Attestation shape validation (for consumers of the attestation)
-// Note: This only validates the object shape. It does NOT verify the
-// cryptographic HMAC proof. Use a separate verification step for that.
+// Shape validation (for consumers of an attestation object)
+// Does NOT verify the cryptographic HMAC — do that server-side.
 // ---------------------------------------------------------------------------
 
-export function isValidAttestationShape(attestation: unknown): attestation is ZKAttestation {
+export function isValidAttestationShape(attestation: unknown): attestation is SignedAttestation {
     if (!attestation || typeof attestation !== "object") return false;
     const a = attestation as Record<string, unknown>;
 

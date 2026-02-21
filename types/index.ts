@@ -14,13 +14,16 @@ export interface OnChainData {
   walletAgeDays: number;
   totalTransactions: number;
   deFiInteractions: {
-    protocol: string; // e.g. "kamino", "solend"
+    protocol: string; // e.g. "kamino", "marginfi", "drift"
     count: number;
+    category: "lending" | "dex" | "nft" | "perps" | "staking"; // protocol category
   }[];
   stakingActive: boolean;
   stakingDurationDays: number;
   solBalance: number;
   stablecoinBalance: number; // USD-denominated sum of USDC + USDT holdings
+  lstBalance: number;        // SOL-denominated sum of liquid staking tokens (jitoSOL, mSOL, bSOL)
+  liquidationCount: number;  // Detected lending liquidation events (0 if none or undetectable)
 }
 
 // ---------------------------------------------------------------------------
@@ -162,20 +165,28 @@ export interface KiteScore {
 }
 
 // ---------------------------------------------------------------------------
-// ZK Attestation
+// Signed Attestation
 // ---------------------------------------------------------------------------
-
-// Note: snake_case field names are intentional here — they match the external
-// ZK attestation protocol wire format. Internal code should use these fields
-// as-is when serializing/deserializing attestations.
-export interface ZKAttestation {
+// The proof field is an HMAC-SHA256 signature over the score data.
+// "ZK Attestation" is the product-facing name used in the UI.
+// The bank verification step (Reclaim Protocol) uses actual ZK proofs;
+// this attestation object is the final portable credential signed by Kite.
+//
+// Note: snake_case field names are intentional — they match the external
+// attestation wire format. Internal code should use these fields as-is
+// when serializing/deserializing attestations.
+export interface SignedAttestation {
   kite_score: number;
   tier: ScoreTier;
   verified_attributes: string[]; // e.g. ["github_linked", "solana_active", "bank_verified"]
-  proof: string;                 // ZK proof hex string
+  proof: string;                 // HMAC-SHA256 hex string (0x-prefixed)
   issued_at: string;             // ISO 8601
   version: string;               // "1.0"
 }
+
+// ZKAttestation is kept as an alias so existing imports and DB-stored
+// JSON objects continue to work without a migration.
+export type ZKAttestation = SignedAttestation;
 
 // ---------------------------------------------------------------------------
 // API response envelope

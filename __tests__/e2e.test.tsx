@@ -45,13 +45,15 @@ function makeOnChainData(overrides: Partial<OnChainData> = {}): OnChainData {
         walletAgeDays: 200,
         totalTransactions: 80,
         deFiInteractions: [
-            { protocol: "jupiter", count: 20 },
-            { protocol: "raydium", count: 10 },
+            { protocol: "jupiter", count: 20, category: "dex" },
+            { protocol: "raydium", count: 10, category: "dex" },
         ],
         stakingActive: true,
         stakingDurationDays: 90,
         solBalance: 5.5,
         stablecoinBalance: 0,
+        lstBalance: 0,
+        liquidationCount: 0,
         ...overrides,
     };
 }

@@ -15,6 +15,8 @@ function makeData(overrides: Partial<OnChainData> = {}): OnChainData {
         stakingDurationDays: 0,
         solBalance: 0,
         stablecoinBalance: 0,
+        lstBalance: 0,
+        liquidationCount: 0,
         ...overrides,
     };
 }
@@ -41,11 +43,11 @@ describe("scoreOnChain", () => {
         const maxed = scoreOnChain(
             makeData({
                 deFiInteractions: [
-                    { protocol: "jupiter", count: 500 },
-                    { protocol: "raydium", count: 500 },
-                    { protocol: "orca", count: 500 },
-                    { protocol: "kamino", count: 500 },
-                    { protocol: "solend", count: 500 },
+                    { protocol: "jupiter", count: 500, category: "dex" },
+                    { protocol: "raydium", count: 500, category: "dex" },
+                    { protocol: "orca", count: 500, category: "dex" },
+                    { protocol: "kamino", count: 500, category: "lending" },
+                    { protocol: "solend", count: 500, category: "lending" },
                 ],
             })
         );
@@ -66,13 +68,15 @@ describe("scoreOnChain", () => {
                 walletAgeDays: 5000,
                 totalTransactions: 1000,
                 deFiInteractions: [
-                    { protocol: "jupiter", count: 500 },
-                    { protocol: "raydium", count: 500 },
-                    { protocol: "orca", count: 500 },
-                    { protocol: "kamino", count: 500 },
+                    { protocol: "jupiter", count: 500, category: "dex" },
+                    { protocol: "raydium", count: 500, category: "dex" },
+                    { protocol: "orca", count: 500, category: "dex" },
+                    { protocol: "kamino", count: 500, category: "lending" },
                 ],
                 stakingActive: true,
                 stakingDurationDays: 1000,
+                lstBalance: 100,
+                stablecoinBalance: 100000,
             })
         );
         expect(maxed.score).toBeLessThanOrEqual(500);
@@ -99,5 +103,47 @@ describe("scoreOnChain", () => {
         expect(result.breakdown).toHaveProperty("repaymentHistory");
         expect(result.breakdown).toHaveProperty("staking");
         expect(result.breakdown).toHaveProperty("stablecoinCapital");
+    });
+
+    it("scores LST balance as a staking signal (capped at 51)", () => {
+        const noLST = scoreOnChain(makeData({ lstBalance: 0 }));
+        const smallLST = scoreOnChain(makeData({ lstBalance: 1 }));
+        const largeLST = scoreOnChain(makeData({ lstBalance: 100 }));
+
+        expect(noLST.breakdown.staking).toBe(0);
+        expect(smallLST.breakdown.staking).toBeGreaterThan(0);
+        expect(largeLST.breakdown.staking).toBeLessThanOrEqual(51);
+    });
+
+    it("gives synergy bonus when both native staking and LST are active", () => {
+        const nativeOnly = scoreOnChain(makeData({ stakingActive: true, stakingDurationDays: 180, lstBalance: 0 }));
+        const both = scoreOnChain(makeData({ stakingActive: true, stakingDurationDays: 180, lstBalance: 5 }));
+        expect(both.breakdown.staking).toBeGreaterThan(nativeOnly.breakdown.staking);
+    });
+
+    it("penalises repayment history for liquidation events", () => {
+        const clean = scoreOnChain(makeData({ totalTransactions: 100, liquidationCount: 0 }));
+        const oneEvent = scoreOnChain(makeData({ totalTransactions: 100, liquidationCount: 1 }));
+        const twoEvents = scoreOnChain(makeData({ totalTransactions: 100, liquidationCount: 2 }));
+        expect(oneEvent.breakdown.repaymentHistory).toBeLessThan(clean.breakdown.repaymentHistory);
+        expect(twoEvents.breakdown.repaymentHistory).toBeLessThanOrEqual(oneEvent.breakdown.repaymentHistory);
+        expect(twoEvents.breakdown.repaymentHistory).toBeGreaterThanOrEqual(0);
+    });
+
+    it("awards category diversity bonus in DeFi activity", () => {
+        const dexOnly = scoreOnChain(makeData({
+            deFiInteractions: [
+                { protocol: "jupiter", count: 10, category: "dex" },
+                { protocol: "raydium", count: 10, category: "dex" },
+            ],
+        }));
+        const mixedCategories = scoreOnChain(makeData({
+            deFiInteractions: [
+                { protocol: "jupiter", count: 10, category: "dex" },
+                { protocol: "kamino", count: 10, category: "lending" },
+                { protocol: "drift", count: 10, category: "perps" },
+            ],
+        }));
+        expect(mixedCategories.breakdown.deFiActivity).toBeGreaterThan(dexOnly.breakdown.deFiActivity);
     });
 });

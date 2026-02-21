@@ -21,8 +21,11 @@ interface AuthContextValue {
     loading: boolean;
     accessToken: string | null;
     signIn: (email: string, password: string) => Promise<{ error?: string }>;
-    signUp: (email: string, password: string, name: string) => Promise<{ error?: string }>;
+    signUp: (email: string, password: string, name: string) => Promise<{ error?: string; needsVerification?: boolean }>;
     signOut: () => Promise<void>;
+    resetPassword: (email: string) => Promise<{ error?: string }>;
+    updatePassword: (newPassword: string) => Promise<{ error?: string }>;
+    resendVerification: (email: string) => Promise<{ error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -32,6 +35,9 @@ const AuthContext = createContext<AuthContextValue>({
     signIn: async () => ({}),
     signUp: async () => ({}),
     signOut: async () => { },
+    resetPassword: async () => ({}),
+    updatePassword: async () => ({}),
+    resendVerification: async () => ({}),
 });
 
 export function useAuth() {
@@ -179,8 +185,46 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
         setAccessToken(null);
     }, []);
 
+    // Send a password reset email. Supabase sends a link that redirects to
+    // /auth/reset-password where the user sets a new password.
+    const resetPassword = useCallback(async (email: string) => {
+        try {
+            const supabase = createBrowserSupabaseClient();
+            const redirectTo = `${window.location.origin}/auth/reset-password`;
+            const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+            if (error) return { error: error.message };
+            return {};
+        } catch {
+            return { error: "Failed to send reset email. Please try again." };
+        }
+    }, []);
+
+    // Update password — must be called after Supabase sets a PASSWORD_RECOVERY session.
+    const updatePassword = useCallback(async (newPassword: string) => {
+        try {
+            const supabase = createBrowserSupabaseClient();
+            const { error } = await supabase.auth.updateUser({ password: newPassword });
+            if (error) return { error: error.message };
+            return {};
+        } catch {
+            return { error: "Failed to update password. Please try again." };
+        }
+    }, []);
+
+    // Resend the email verification link for an unverified account.
+    const resendVerification = useCallback(async (email: string) => {
+        try {
+            const supabase = createBrowserSupabaseClient();
+            const { error } = await supabase.auth.resend({ type: "signup", email });
+            if (error) return { error: error.message };
+            return {};
+        } catch {
+            return { error: "Failed to resend verification email." };
+        }
+    }, []);
+
     return (
-        <AuthContext.Provider value={{ user, loading, accessToken, signIn, signUp, signOut }}>
+        <AuthContext.Provider value={{ user, loading, accessToken, signIn, signUp, signOut, resetPassword, updatePassword, resendVerification }}>
             {children}
         </AuthContext.Provider>
     );

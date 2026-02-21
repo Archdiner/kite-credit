@@ -18,6 +18,7 @@ export default function AuthPage() {
     const [name, setName] = useState("");
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+    const [verificationSent, setVerificationSent] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -31,9 +32,20 @@ export default function AuthPage() {
                     setLoading(false);
                     return;
                 }
+                if (password.length < 8) {
+                    setError("Password must be at least 8 characters");
+                    setLoading(false);
+                    return;
+                }
                 const result = await signUp(email, password, name);
                 if (result.error) {
                     setError(result.error);
+                    setLoading(false);
+                    return;
+                }
+                // If no session was returned, email verification is required
+                if (result.needsVerification) {
+                    setVerificationSent(true);
                     setLoading(false);
                     return;
                 }
@@ -46,7 +58,6 @@ export default function AuthPage() {
                 }
             }
 
-            // Small delay to let auth state propagate
             setTimeout(() => {
                 router.push("/dashboard");
             }, 300);
@@ -55,6 +66,43 @@ export default function AuthPage() {
             setLoading(false);
         }
     };
+
+    // Email verification sent state
+    if (verificationSent) {
+        return (
+            <div className="relative min-h-screen overflow-hidden font-sans">
+                <div className="fixed inset-0 z-0">
+                    <Image src="/city_background.png" alt="" fill className="object-cover object-center" priority quality={90} />
+                    <div className="absolute inset-0 bg-gradient-to-b from-slate-900/50 via-slate-900/70 to-slate-900/95" />
+                </div>
+                <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-6">
+                    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-md text-center">
+                        <div className="relative">
+                            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/20 to-sky-500/20 rounded-2xl blur-xl" />
+                            <div className="relative bg-slate-900/80 backdrop-blur-xl rounded-2xl p-10 border border-emerald-500/20 shadow-2xl">
+                                <div className="w-14 h-14 bg-emerald-500/20 border border-emerald-500/30 rounded-full flex items-center justify-center mx-auto mb-6">
+                                    <svg className="w-7 h-7 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                    </svg>
+                                </div>
+                                <h2 className="text-xl font-bold text-white mb-2 tracking-wide">Check your inbox</h2>
+                                <p className="text-white/50 text-sm leading-relaxed mb-6">
+                                    We sent a verification link to <span className="text-white/80 font-medium">{email}</span>.<br />
+                                    Click it to activate your account.
+                                </p>
+                                <p className="text-white/30 text-xs font-mono">Didn&apos;t receive it? Check your spam folder or{" "}
+                                    <button onClick={() => setVerificationSent(false)} className="text-sky-400 hover:text-sky-300 transition-colors underline">try again</button>.
+                                </p>
+                            </div>
+                        </div>
+                        <Link href="/" className="mt-6 inline-flex items-center gap-2 text-white/30 hover:text-white/60 transition-colors text-sm">
+                            ← Back to Home
+                        </Link>
+                    </motion.div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="relative min-h-screen overflow-hidden font-sans">
@@ -160,9 +208,19 @@ export default function AuthPage() {
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs text-white/40 font-mono tracking-widest uppercase mb-2">
-                                        Password
-                                    </label>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <label className="block text-xs text-white/40 font-mono tracking-widest uppercase">
+                                            Password
+                                        </label>
+                                        {mode === "signin" && (
+                                            <Link
+                                                href="/auth/forgot-password"
+                                                className="text-xs text-sky-400/70 hover:text-sky-400 transition-colors font-mono"
+                                            >
+                                                Forgot password?
+                                            </Link>
+                                        )}
+                                    </div>
                                     <input
                                         type="password"
                                         value={password}
@@ -170,8 +228,13 @@ export default function AuthPage() {
                                         placeholder="••••••••"
                                         className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/20 focus:outline-none focus:border-sky-400/50 focus:ring-1 focus:ring-sky-400/30 transition-all font-light"
                                         required
-                                        minLength={6}
+                                        minLength={8}
                                     />
+                                    {mode === "signup" && (
+                                        <p className="text-[10px] text-white/25 font-mono mt-1.5 tracking-wide">
+                                            Minimum 8 characters
+                                        </p>
+                                    )}
                                 </div>
 
                                 {/* Error */}
