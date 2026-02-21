@@ -13,14 +13,16 @@ const MOCK_ON_CHAIN_DATA = {
     walletAgeDays: 1450, // Very old wallet
     totalTransactions: 5000,
     deFiInteractions: [
-        { protocol: "jupiter", count: 120 },
-        { protocol: "marinade", count: 45 },
-        { protocol: "kamino", count: 12 }
+        { protocol: "jupiter", count: 120, category: "dex" as const },
+        { protocol: "marinade", count: 45, category: "staking" as const },
+        { protocol: "kamino", count: 12, category: "lending" as const },
     ],
     stakingActive: true,
     stakingDurationDays: 365,
     solBalance: 0,
     stablecoinBalance: 0,
+    lstBalance: 0,
+    liquidationCount: 0,
 };
 
 async function runVerification() {
