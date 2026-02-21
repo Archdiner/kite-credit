@@ -1,11 +1,31 @@
 import type { Metadata } from "next";
+import { createHmac } from "node:crypto";
 import { getShareData } from "@/lib/share";
 import SharePageClient from "@/app/share/SharePageClient";
+import type { ShareData } from "@/types";
 
 const FALLBACK_META: Metadata = {
     title: "Kite Credit Score",
     description: "View this Kite Credit score and get your own.",
 };
+
+function verifyProof(data: ShareData): boolean {
+    try {
+        const secret = process.env.ATTESTATION_SECRET || "dev-attestation-secret-change-me";
+        const proofData = JSON.stringify({
+            total: data.cryptoScore,
+            tier: data.cryptoTier,
+            sources: data.verifiedAttrs,
+            timestamp: data.attestationDate,
+        });
+        const hmac = createHmac("sha256", secret);
+        hmac.update(proofData);
+        const expected = "0x" + hmac.digest("hex");
+        return data.proof === expected;
+    } catch {
+        return false;
+    }
+}
 
 export async function generateMetadata({
     params,
@@ -58,5 +78,6 @@ export default async function ShortSharePage({
 }) {
     const { id } = await params;
     const data = await getShareData(id);
-    return <SharePageClient data={data} />;
+    const proofValid = data ? verifyProof(data) : false;
+    return <SharePageClient data={data} proofValid={proofValid} shareId={id} />;
 }
