@@ -20,29 +20,11 @@ import ScoreRadarChart from "@/components/dashboard/ScoreRadarChart";
 import ShareScoreCard from "@/components/dashboard/ShareScoreCard";
 import Link from "next/link";
 import type { KiteScore, ZKAttestation } from "@/types";
+import { getScoreAge } from "@/lib/freshness";
 
 const SOLANA_ADDRESS_REGEX = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
 type FlowState = "connect" | "loading" | "results";
-
-function getScoreAge(timestamp: string): {
-    label: string;
-    status: "fresh" | "aging" | "stale";
-    daysUntilExpiry: number;
-} {
-    const ms = Date.now() - new Date(timestamp).getTime();
-    const hours = ms / (1000 * 60 * 60);
-    const expiryMs = new Date(timestamp).getTime() + 90 * 24 * 60 * 60 * 1000;
-    const daysUntilExpiry = Math.max(0, Math.ceil((expiryMs - Date.now()) / (1000 * 60 * 60 * 24)));
-
-    let label: string;
-    if (hours < 1) label = "Just now";
-    else if (hours < 24) label = `${Math.floor(hours)}h ago`;
-    else label = `${Math.floor(hours / 24)}d ago`;
-
-    const status = hours < 24 ? "fresh" : hours < 168 ? "aging" : "stale";
-    return { label, status, daysUntilExpiry };
-}
 
 function DashboardContent() {
     const { publicKey, connected, signMessage, wallet, connect, connecting, disconnect } = useWallet();

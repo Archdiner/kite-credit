@@ -189,13 +189,21 @@ describe("ScoreDisplay Component", () => {
         expect(screen.getByText(String(devNormalized))).toBeInTheDocument();
     });
 
-    it("switches to unified tab", () => {
+    it("only shows Crypto and Developer tabs — no Unified tab", () => {
         render(<ScoreDisplay score={mockScore} />);
-        fireEvent.click(screen.getByText("Unified"));
-        expect(screen.getByText("Combined Tier")).toBeInTheDocument();
+        expect(screen.getByText("Crypto")).toBeInTheDocument();
+        expect(screen.getByText("Developer")).toBeInTheDocument();
+        expect(screen.queryByText("Unified")).not.toBeInTheDocument();
     });
 
-    it("disables dev/unified tabs when github is not connected", () => {
+    it("dev tab shows raw score badge", () => {
+        render(<ScoreDisplay score={mockScore} />);
+        fireEvent.click(screen.getByText("Developer"));
+        const devScoreRaw = mockScore.breakdown.github!.score;
+        expect(screen.getByText(`Raw: ${devScoreRaw}/300`)).toBeInTheDocument();
+    });
+
+    it("disables dev tab when github is not connected", () => {
         const noGithub = makeMockKiteScore({
             breakdown: {
                 ...mockScore.breakdown,
@@ -208,11 +216,12 @@ describe("ScoreDisplay Component", () => {
         expect(devBtn).toBeDisabled();
     });
 
-    it("shows correct tier label", () => {
+    it("displays the correct crypto score number", () => {
         render(<ScoreDisplay score={mockScore} />);
         const cryptoScore = mockScore.total - (mockScore.githubBonus || 0);
-        const tier = getTier(cryptoScore);
-        expect(screen.getByText(tier)).toBeInTheDocument();
+        // Score appears in both the circle and possibly elsewhere; getAllByText handles multiples
+        const matches = screen.getAllByText(String(cryptoScore));
+        expect(matches.length).toBeGreaterThan(0);
     });
 });
 
@@ -263,10 +272,9 @@ describe("AttestationCard Component", () => {
         expect(screen.getByText("github linked")).toBeInTheDocument();
     });
 
-    it("has copy and share buttons", () => {
+    it("has a copy proof button", () => {
         render(<AttestationCard attestation={mockAttestation} />);
         expect(screen.getByText("Copy Proof")).toBeInTheDocument();
-        expect(screen.getByText("Share Score")).toBeInTheDocument();
     });
 
     it("renders ZK Attestation header", () => {
@@ -283,32 +291,26 @@ describe("ShareScoreCard Component", () => {
     const mockScore = makeMockKiteScore();
     const mockAttestation = makeMockAttestation();
 
-    it("renders share button", () => {
+    it("renders Share Score button", () => {
         render(<ShareScoreCard score={mockScore} attestation={mockAttestation} />);
-        expect(screen.getByText("Share Your Score")).toBeInTheDocument();
+        expect(screen.getByText("Share Score")).toBeInTheDocument();
     });
 
-    it("expands card on click with score type selector", () => {
+    it("renders Kite Credit branding and mode label in card", () => {
         render(<ShareScoreCard score={mockScore} attestation={mockAttestation} />);
-        fireEvent.click(screen.getByText("Share Your Score"));
         expect(screen.getByText("Kite Credit")).toBeInTheDocument();
-        expect(screen.getByText("Crypto")).toBeInTheDocument();
-        expect(screen.getByText("Developer")).toBeInTheDocument();
-        expect(screen.getByText("Unified")).toBeInTheDocument();
+        expect(screen.getByText("Crypto Credit")).toBeInTheDocument();
     });
 
-    it("shows verification attestation when expanded", () => {
+    it("renders attestation section with HMAC label when attestation provided", () => {
         render(<ShareScoreCard score={mockScore} attestation={mockAttestation} />);
-        fireEvent.click(screen.getByText("Share Your Score"));
         expect(screen.getByText("Verified Attestation")).toBeInTheDocument();
         expect(screen.getByText("HMAC-SHA256 signed")).toBeInTheDocument();
     });
 
-    it("shows share actions when expanded", () => {
-        render(<ShareScoreCard score={mockScore} attestation={mockAttestation} />);
-        fireEvent.click(screen.getByText("Share Your Score"));
-        expect(screen.getByText("Share")).toBeInTheDocument();
-        expect(screen.getByText("Copy Link")).toBeInTheDocument();
+    it("renders without crashing when attestation is null", () => {
+        render(<ShareScoreCard score={mockScore} attestation={null} />);
+        expect(screen.getByText("Share Score")).toBeInTheDocument();
     });
 });
 
