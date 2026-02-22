@@ -58,11 +58,13 @@ interface Props {
     data: ShareData | null;
     /** Present when rendered from /s/[id] — indicates server-side HMAC was verified */
     proofValid?: boolean;
+    /** True when the score's 90-day expiry window has passed */
+    isExpired?: boolean;
     /** The short share ID, used to show the API endpoint */
     shareId?: string;
 }
 
-export default function SharePageClient({ data, proofValid, shareId }: Props) {
+export default function SharePageClient({ data, proofValid, isExpired = false, shareId }: Props) {
     const [activeMode, setActiveMode] = useState<"crypto" | "dev">("crypto");
     const [apiExpanded, setApiExpanded] = useState(false);
 
@@ -88,7 +90,7 @@ export default function SharePageClient({ data, proofValid, shareId }: Props) {
     const displayScore = activeMode === "dev" && hasDevScore ? data.devScore! : data.cryptoScore;
     const displayTier  = activeMode === "dev" && hasDevScore ? data.devTier!  : data.cryptoTier;
     // proofValid is only present when loaded from /s/[id] (DB-backed, server-verified)
-    const isVerified = proofValid === true;
+    const isVerified = proofValid === true && !isExpired;
     const hasVerification = proofValid !== undefined;
 
     const appUrl = typeof window !== "undefined" ? window.location.origin : "https://kitecredit.xyz";
@@ -119,7 +121,9 @@ export default function SharePageClient({ data, proofValid, shareId }: Props) {
                         <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${
                             isVerified
                                 ? "bg-emerald-500/10 border-emerald-500/25"
-                                : "bg-red-500/10 border-red-500/25"
+                                : proofValid && isExpired
+                                    ? "bg-amber-500/10 border-amber-500/25"
+                                    : "bg-red-500/10 border-red-500/25"
                         }`}>
                             {isVerified ? (
                                 <>
@@ -131,6 +135,18 @@ export default function SharePageClient({ data, proofValid, shareId }: Props) {
                                     <div>
                                         <p className="text-xs font-bold text-emerald-300 tracking-wide">Signature Valid</p>
                                         <p className="text-[10px] text-emerald-300/50 font-mono">HMAC-SHA256 verified by Kite</p>
+                                    </div>
+                                </>
+                            ) : proofValid && isExpired ? (
+                                <>
+                                    <div className="w-7 h-7 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0">
+                                        <svg className="w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-bold text-amber-300 tracking-wide">Score Expired</p>
+                                        <p className="text-[10px] text-amber-300/50 font-mono">Valid signature · exceeded 90-day window</p>
                                     </div>
                                 </>
                             ) : (
@@ -230,6 +246,17 @@ export default function SharePageClient({ data, proofValid, shareId }: Props) {
                                 </div>
                             )}
 
+                            {/* Expiry row */}
+                            {data.expiresAt && (
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[9px] text-white/25 font-mono uppercase tracking-widest">Expires</span>
+                                    <span className={`text-[9px] font-mono ${isExpired ? "text-amber-400/70" : "text-white/30"}`}>
+                                        {new Date(data.expiresAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                                        {isExpired && " · expired"}
+                                    </span>
+                                </div>
+                            )}
+
                             {/* Proof row */}
                             {data.proof && (
                                 <div className="pt-3 border-t border-white/5">
@@ -274,10 +301,12 @@ export default function SharePageClient({ data, proofValid, shareId }: Props) {
                                             <pre className="text-[9px] text-white/30 font-mono bg-black/30 rounded p-3 leading-relaxed overflow-x-auto">
 {`{
   "valid": ${isVerified},
+  "expired": ${isExpired},
   "score": ${data.cryptoScore},
   "tier": "${data.cryptoTier}",
   "verified_attributes": ${JSON.stringify(data.verifiedAttrs)},
   "issued_at": "${data.attestationDate ?? ""}",
+  "expires_at": "${data.expiresAt ?? ""}",
   "age_hours": ...
 }`}
                                             </pre>

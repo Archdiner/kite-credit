@@ -64,12 +64,16 @@ export async function GET(
         ? Math.round((Date.now() - issuedAt.getTime()) / (1000 * 60 * 60))
         : null;
 
+    const expired = data.expiresAt ? new Date(data.expiresAt) < new Date() : false;
+
     const response = {
-        valid,
+        valid: valid && !expired,
+        expired,
         score: data.cryptoScore,
         tier: data.cryptoTier,
         verified_attributes: data.verifiedAttrs,
         issued_at: data.attestationDate ?? null,
+        expires_at: data.expiresAt ?? null,
         age_hours: ageHours,
         ...(data.devScore !== null && {
             dev_score: data.devScore,

@@ -49,6 +49,7 @@ export default function ShareScoreCard({ score, attestation, activeMode = "crypt
             onChainScore: score.breakdown.onChain.score,
             proof: attestation?.proof ?? "",
             attestationDate: attestation?.issued_at ?? "",
+            expiresAt: attestation?.expires_at ?? "",
             verifiedAttrs: attestation?.verified_attributes ?? [],
         };
     }, [cryptoScore, devScoreNormalized, devScoreRaw, hasGitHub, score.breakdown.onChain.score, attestation]);

@@ -56,12 +56,16 @@ export function generateAttestation(score: KiteScore): SignedAttestation {
     hmac.update(proofData);
     const proofHex = hmac.digest("hex");
 
+    const issuedAt = score.timestamp;
+    const expiresAt = new Date(new Date(issuedAt).getTime() + 90 * 24 * 60 * 60 * 1000).toISOString();
+
     return {
         kite_score: score.total,
         tier: score.tier,
         verified_attributes: connectedSources,
         proof: `0x${proofHex}`,
-        issued_at: score.timestamp,
+        issued_at: issuedAt,
+        expires_at: expiresAt,
         version: "1.0",
     };
 }

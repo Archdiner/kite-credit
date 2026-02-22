@@ -181,6 +181,7 @@ export interface SignedAttestation {
   verified_attributes: string[]; // e.g. ["github_linked", "solana_active", "bank_verified"]
   proof: string;                 // HMAC-SHA256 hex string (0x-prefixed)
   issued_at: string;             // ISO 8601
+  expires_at?: string;           // ISO 8601 — issued_at + 90 days (absent on legacy attestations)
   version: string;               // "1.0"
 }
 
@@ -211,5 +212,6 @@ export interface ShareData {
   onChainScore: number;
   proof: string;
   attestationDate: string;
+  expiresAt?: string;   // ISO 8601 — absent on legacy share links
   verifiedAttrs: string[];
 }

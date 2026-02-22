@@ -79,5 +79,6 @@ export default async function ShortSharePage({
     const { id } = await params;
     const data = await getShareData(id);
     const proofValid = data ? verifyProof(data) : false;
-    return <SharePageClient data={data} proofValid={proofValid} shareId={id} />;
+    const isExpired = data?.expiresAt ? new Date(data.expiresAt) < new Date() : false;
+    return <SharePageClient data={data} proofValid={proofValid} isExpired={isExpired} shareId={id} />;
 }
