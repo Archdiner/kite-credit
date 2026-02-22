@@ -125,3 +125,8 @@ create unique index if not exists idx_shared_scores_data_hash
 
 create index if not exists idx_shared_scores_created_at
   on public.shared_scores(created_at);
+
+-- Index for fast wallet-address lookups (used by /api/score/by-wallet/:address)
+create index if not exists idx_user_connections_wallet
+  on public.user_connections(provider_user_id)
+  where provider = 'solana_wallet';
