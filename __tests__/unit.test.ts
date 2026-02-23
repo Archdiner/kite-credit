@@ -374,12 +374,14 @@ describe("isValidAttestationShape", () => {
     });
 
     it("rejects when kite_score is missing", () => {
-        const { kite_score: _, ...without } = valid;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { kite_score: _kiteScore, ...without } = valid;
         expect(isValidAttestationShape(without)).toBe(false);
     });
 
     it("rejects when proof is missing", () => {
-        const { proof: _, ...without } = valid;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { proof: _proof, ...without } = valid;
         expect(isValidAttestationShape(without)).toBe(false);
     });
 

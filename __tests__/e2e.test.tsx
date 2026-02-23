@@ -7,7 +7,7 @@ import ShareScoreCard from "@/components/dashboard/ShareScoreCard";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { scoreGitHub } from "@/lib/github";
 import { scoreOnChain } from "@/lib/solana";
-import { assembleKiteScore, getTier } from "@/lib/scoring";
+import { assembleKiteScore } from "@/lib/scoring";
 import { generateMockProof, scoreFinancial } from "@/lib/reclaim";
 import type { KiteScore, ZKAttestation, OnChainData, GitHubData } from "@/types";
 

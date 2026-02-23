@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getAppUrl } from "@/lib/env";
-import { getUserFromToken, upsertConnection, encryptToken } from "@/lib/auth";
+import { getUserFromToken, upsertConnection } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
     const url = new URL(request.url);

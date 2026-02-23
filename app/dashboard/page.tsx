@@ -117,7 +117,7 @@ function DashboardContent() {
         };
 
         restoreData();
-    }, [user, accessToken]);
+    }, [user, accessToken, isMobile, setMobileWalletAddress]);
 
     // Detect GitHub OAuth return and fetch username
     useEffect(() => {
@@ -181,7 +181,7 @@ function DashboardContent() {
 
             router.replace("/dashboard", { scroll: false });
         }
-    }, [searchParams, mobileWalletAddress, accessToken]);
+    }, [searchParams, mobileWalletAddress, accessToken, changingWallet, router, setMobileWalletAddress, setMobileWalletSignature]);
 
     useEffect(() => {
         if (!isMobile && wallet && !connected && !connecting) {
@@ -214,7 +214,8 @@ function DashboardContent() {
                     setChangingWallet(false);
                 });
         }
-    }, [isMobile, connected, publicKey, accessToken]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- changingWallet intentionally excluded: including it would re-trigger the effect after setChangingWallet(false) resolves, causing a duplicate API call
+    }, [isMobile, connected, publicKey, accessToken, disconnect]);
 
     const handleCalculateScore = useCallback(async () => {
         if (!effectiveWalletAddress) return;

@@ -13,7 +13,7 @@
 //   ATTESTATION_SECRET before trusting the payload.
 // ---------------------------------------------------------------------------
 
-import type { KiteScore, SignedAttestation, ScoreTier } from "@/types";
+import type { KiteScore, SignedAttestation } from "@/types";
 import { getConnectedSources } from "@/lib/scoring";
 import { createHmac } from "node:crypto";
 

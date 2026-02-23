@@ -154,7 +154,7 @@ interface FactorCardProps {
     delay: number; // Added delay to match existing usage
 }
 
-function FactorCard({ title, icon: Icon, score, desc, color, delay }: FactorCardProps) {
+function FactorCard({ title, score, desc, color, delay }: FactorCardProps) {
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}

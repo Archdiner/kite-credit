@@ -1,6 +1,6 @@
 
 import { assembleKiteScore } from "../lib/scoring";
-import { OnChainScore, FinancialScore, GitHubScore } from "../types";
+import { OnChainScore, FinancialScore } from "../types";
 
 // Helper to create mock OnChainScore
 const mockOnChain = (age: number, txs: number, score: number): OnChainScore => ({

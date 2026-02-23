@@ -34,7 +34,6 @@ export default function ScoreRadarChart({ breakdown }: ScoreRadarChartProps) {
     };
 
     const polygonPoints = data.map((d, i) => getPoint(i, d.value)).join(" ");
-    const fullPolyPoints = data.map((_, i) => getPoint(i, 1)).join(" ");
 
     // Grid levels (25%, 50%, 75%, 100%)
     const gridLevels = [0.25, 0.5, 0.75, 1];

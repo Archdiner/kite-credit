@@ -83,7 +83,6 @@ export async function requireAuth(request: Request) {
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12; // 96 bits for GCM
-const TAG_LENGTH = 16; // 128 bits
 
 function getEncryptionKey(): Buffer {
     const key = process.env.DB_ENCRYPTION_KEY;

@@ -13,11 +13,6 @@ import { getAppUrl } from "@/lib/env";
 // Reclaim verification request
 // ---------------------------------------------------------------------------
 
-interface ReclaimVerificationRequest {
-    providerId: string;    // Reclaim provider ID
-    callbackUrl: string;   // Where Reclaim posts the proof
-}
-
 interface ReclaimProof {
     claimData: {
         provider: string;

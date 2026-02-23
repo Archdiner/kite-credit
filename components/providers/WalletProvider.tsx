@@ -4,7 +4,6 @@ import {
     useMemo,
     useCallback,
     useState,
-    useEffect,
     createContext,
     useContext,
     type ReactNode,
@@ -15,7 +14,6 @@ import {
 } from "@solana/wallet-adapter-react";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import {
-    type Adapter,
     type WalletError,
 } from "@solana/wallet-adapter-base";
 import {
@@ -65,13 +63,9 @@ interface Props {
 
 export default function WalletProvider({ children }: Props) {
     const network = (process.env.NEXT_PUBLIC_SOLANA_NETWORK || "mainnet-beta") as Cluster;
-    const [isMobile, setIsMobile] = useState(false);
+    const [isMobile] = useState(() => getIsMobile());
     const [mobileWalletAddress, setMobileWalletAddress] = useState<string | null>(null);
     const [mobileWalletSignature, setMobileWalletSignature] = useState<MobileWalletSignature | null>(null);
-
-    useEffect(() => {
-        setIsMobile(getIsMobile());
-    }, []);
 
     const endpoint = useMemo(() => {
         if (process.env.NEXT_PUBLIC_SOLANA_RPC_URL) {
@@ -92,7 +86,7 @@ export default function WalletProvider({ children }: Props) {
         [isMobile],
     );
 
-    const onError = useCallback((error: WalletError, _adapter?: Adapter) => {
+    const onError = useCallback((error: WalletError) => {
         console.error("[WalletProvider]", error.name, error.message);
     }, []);
 

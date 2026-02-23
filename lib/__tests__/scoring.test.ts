@@ -1,4 +1,4 @@
-import { assembleKiteScore, getTier } from "../scoring";
+import { assembleKiteScore } from "../scoring";
 import type { OnChainScore, FinancialScore, GitHubScore } from "@/types";
 
 describe("Kite Scoring Engine v3", () => {

@@ -5,6 +5,6 @@ module.exports = {
     moduleNameMapper: {
         "^@/(.*)$": "<rootDir>/$1",
     },
-    setupFilesAfterEnv: ["<rootDir>/jest.setup.js"],
+    setupFilesAfterEnv: ["<rootDir>/jest.setup.ts"],
     testPathIgnorePatterns: ["/node_modules/", "\\.integration\\.test\\.ts$"],
 };

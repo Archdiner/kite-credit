@@ -1,1 +1,1 @@
-require("dotenv").config({ path: ".env.local" });
+// Setup has moved to jest.integration.setup.ts

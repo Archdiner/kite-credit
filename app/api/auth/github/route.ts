@@ -5,12 +5,12 @@
 // authorization page with appropriate scopes and CSRF state parameter.
 // ---------------------------------------------------------------------------
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { cookies } from "next/headers";
 import { getAppUrl } from "@/lib/env";
 
-export async function GET(request: NextRequest) {
+export async function GET() {
     const clientId = process.env.GITHUB_CLIENT_ID;
     const appUrl = getAppUrl();
 
