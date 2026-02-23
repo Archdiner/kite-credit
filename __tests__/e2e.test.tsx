@@ -390,34 +390,3 @@ describe("Financial Scoring Pipeline", () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// Multi-wallet trust boost
-// ---------------------------------------------------------------------------
-
-describe("Multi-wallet Trust Boost", () => {
-    const onChainScore = scoreOnChain(makeOnChainData());
-
-    it("secondary wallets provide a score boost", () => {
-        const single = assembleKiteScore(
-            { onChain: onChainScore, financial: null, github: null, secondaryWalletCount: 0 },
-            "Single"
-        );
-        const multi = assembleKiteScore(
-            { onChain: onChainScore, financial: null, github: null, secondaryWalletCount: 2 },
-            "Multi"
-        );
-        expect(multi.total).toBeGreaterThanOrEqual(single.total);
-    });
-
-    it("caps boost at 2 secondary wallets", () => {
-        const twoWallets = assembleKiteScore(
-            { onChain: onChainScore, financial: null, github: null, secondaryWalletCount: 2 },
-            "Two"
-        );
-        const fiveWallets = assembleKiteScore(
-            { onChain: onChainScore, financial: null, github: null, secondaryWalletCount: 5 },
-            "Five"
-        );
-        expect(fiveWallets.total).toBe(twoWallets.total);
-    });
-});

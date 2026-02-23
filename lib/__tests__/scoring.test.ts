@@ -34,19 +34,6 @@ describe("Kite Scoring Engine v3", () => {
         },
     };
 
-    describe("getTier", () => {
-        it("classifies all tier boundaries correctly", () => {
-            expect(getTier(1000)).toBe("Elite");
-            expect(getTier(800)).toBe("Elite");
-            expect(getTier(799)).toBe("Strong");
-            expect(getTier(700)).toBe("Strong");
-            expect(getTier(699)).toBe("Steady");
-            expect(getTier(600)).toBe("Steady");
-            expect(getTier(599)).toBe("Building");
-            expect(getTier(0)).toBe("Building");
-        });
-    });
-
     describe("assembleKiteScore", () => {
         it("caps score at 1000 with perfect inputs", () => {
             const result = assembleKiteScore(

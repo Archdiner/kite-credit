@@ -215,3 +215,65 @@ export interface ShareData {
   expiresAt?: string;   // ISO 8601 — absent on legacy share links
   verifiedAttrs: string[];
 }
+
+// ---------------------------------------------------------------------------
+// Lender Infrastructure
+// ---------------------------------------------------------------------------
+
+export interface LenderApiKey {
+  id: string;
+  key_hash: string;
+  key_prefix: string;
+  name: string | null;
+  email: string | null;
+  use_case: string | null;
+  rate_limit: number;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LenderWebhook {
+  id: string;
+  lender_id: string;
+  wallet_address: string;
+  url: string;
+  events: string[];
+  secret: string;
+  active: boolean;
+  failure_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WebhookDelivery {
+  id: string;
+  webhook_id: string;
+  event: string;
+  payload: Record<string, unknown>;
+  status_code: number | null;
+  error: string | null;
+  delivered_at: string;
+}
+
+export interface BatchLookupResponse {
+  results: Array<{
+    address: string;
+    found: boolean;
+    score?: number;
+    tier?: string;
+    expired?: boolean;
+    issued_at?: string | null;
+    expires_at?: string | null;
+  }>;
+  lookup_count: number;
+}
+
+export interface WebhookPayload {
+  event: string;
+  wallet_address: string;
+  score: number;
+  tier: string;
+  issued_at: string;
+  timestamp: string;
+}

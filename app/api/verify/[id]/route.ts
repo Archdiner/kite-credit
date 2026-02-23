@@ -24,6 +24,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac } from "node:crypto";
 import { getShareData } from "@/lib/share";
+import { authenticateApiKey, checkLenderRateLimit } from "@/lib/api-key-auth";
+import { checkRateLimit } from "@/lib/rate-limit";
 import type { ShareData } from "@/types";
 
 function verifyProof(data: ShareData): boolean {
@@ -45,9 +47,27 @@ function verifyProof(data: ShareData): boolean {
 }
 
 export async function GET(
-    _req: NextRequest,
+    req: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
+    // Dual-path auth: API key gets higher rate limit
+    const lender = await authenticateApiKey(req);
+    let rateLimitResult;
+
+    if (lender) {
+        rateLimitResult = await checkLenderRateLimit(lender.id, "verify", lender.rate_limit);
+    } else {
+        const ip = req.headers.get("x-forwarded-for") || "unknown";
+        rateLimitResult = await checkRateLimit("verify:" + ip, 60, 60);
+    }
+
+    if (!rateLimitResult.success) {
+        return NextResponse.json(
+            { error: "Too many requests" },
+            { status: 429, headers: { "Retry-After": String(rateLimitResult.reset - Math.floor(Date.now() / 1000)) } }
+        );
+    }
+
     const { id } = await params;
     const data = await getShareData(id);
 

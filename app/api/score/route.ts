@@ -22,6 +22,7 @@ import { generateAttestation } from "@/lib/attestation";
 import { successResponse, errorResponse } from "@/lib/api-utils";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { getUserFromToken, getConnection, decryptToken, saveScore, upsertConnection } from "@/lib/auth";
+import { dispatchScoreChanged } from "@/lib/webhook";
 
 export async function POST(req: NextRequest) {
     try {
@@ -276,6 +277,13 @@ Provide a 2-sentence explanation of their creditworthiness based heavily on thei
             try {
                 const sources = getConnectedSources(kiteScore.breakdown);
                 await saveScore(userId, kiteScore, attestation, sources);
+
+                // Fire-and-forget: notify lender webhooks subscribed to this wallet
+                dispatchScoreChanged(walletAddress, {
+                    score: kiteScore.total,
+                    tier: kiteScore.tier,
+                    issued_at: attestation.issued_at,
+                }).catch((err) => console.error("[score] Webhook dispatch error:", err));
             } catch (dbError) {
                 console.error("[score] Failed to persist score:", dbError);
                 // Non-fatal: still return the score

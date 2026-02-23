@@ -36,6 +36,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createHmac } from "node:crypto";
 import { createServerSupabaseClient } from "@/lib/supabase";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { authenticateApiKey, checkLenderRateLimit } from "@/lib/api-key-auth";
 import type { SignedAttestation } from "@/types";
 
 const SOLANA_ADDRESS_REGEX = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
@@ -68,13 +69,21 @@ export async function GET(
     req: NextRequest,
     { params }: { params: Promise<{ address: string }> }
 ) {
-    const ip = req.headers.get("x-forwarded-for") || "unknown";
-    const { success, reset } = await checkRateLimit("by-wallet:" + ip, 60, 60);
+    // Dual-path auth: API key gets higher rate limit, anonymous uses IP-based
+    const lender = await authenticateApiKey(req);
+    let rateLimitResult;
 
-    if (!success) {
+    if (lender) {
+        rateLimitResult = await checkLenderRateLimit(lender.id, "by-wallet", lender.rate_limit);
+    } else {
+        const ip = req.headers.get("x-forwarded-for") || "unknown";
+        rateLimitResult = await checkRateLimit("by-wallet:" + ip, 60, 60);
+    }
+
+    if (!rateLimitResult.success) {
         return NextResponse.json(
             { error: "Too many requests" },
-            { status: 429, headers: { "Retry-After": String(reset - Math.floor(Date.now() / 1000)) } }
+            { status: 429, headers: { "Retry-After": String(rateLimitResult.reset - Math.floor(Date.now() / 1000)) } }
         );
     }
 
@@ -131,18 +140,22 @@ export async function GET(
         ? Math.round((Date.now() - issuedAt.getTime()) / (1000 * 60 * 60))
         : null;
 
-    return NextResponse.json(
-        {
-            found: true,
-            valid: valid && !expired,
-            expired,
-            score: scoreRow.total_score,
-            tier: scoreRow.tier,
-            verified_attributes: attestation.verified_attributes,
-            issued_at: attestation.issued_at ?? null,
-            expires_at: attestation.expires_at ?? null,
-            age_hours: ageHours,
-        },
-        { headers: CORS_HEADERS }
-    );
+    const responseData: Record<string, unknown> = {
+        found: true,
+        valid: valid && !expired,
+        expired,
+        score: scoreRow.total_score,
+        tier: scoreRow.tier,
+        verified_attributes: attestation.verified_attributes,
+        issued_at: attestation.issued_at ?? null,
+        expires_at: attestation.expires_at ?? null,
+        age_hours: ageHours,
+    };
+
+    if (lender) {
+        responseData.authenticated = true;
+        responseData.lender_key_prefix = lender.key_prefix;
+    }
+
+    return NextResponse.json(responseData, { headers: CORS_HEADERS });
 }
