@@ -277,3 +277,15 @@ export interface WebhookPayload {
   issued_at: string;
   timestamp: string;
 }
+
+export interface LenderDashboardData {
+  id: string;
+  name: string | null;
+  email: string | null;
+  key_prefix: string;
+  rate_limit: number;
+  active: boolean;
+  created_at: string;
+  total_webhooks: number;
+  active_webhooks: number;
+}
