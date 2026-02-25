@@ -15,6 +15,7 @@ jest.mock("viem", () => ({
     createPublicClient: jest.fn(),
     http: jest.fn(),
     parseAbi: jest.fn(() => []),
+    parseAbiItem: jest.fn(() => ({})),
     mainnet: { id: 1 },
 }));
 

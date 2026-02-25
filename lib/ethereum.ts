@@ -13,7 +13,7 @@
 //   Staking:  Lido (stETH), Rocket Pool (rETH), Coinbase (cbETH)
 // ---------------------------------------------------------------------------
 
-import { createPublicClient, http, parseAbi, type Hex, type Address } from "viem";
+import { createPublicClient, http, parseAbi, parseAbiItem, type Address } from "viem";
 import { mainnet } from "viem/chains";
 import type { EVMData, EVMScore } from "@/types";
 
@@ -40,13 +40,16 @@ const ERC20_BALANCE_ABI = parseAbi([
     "function balanceOf(address owner) view returns (uint256)",
 ]);
 
-// Aave V3 event signatures (topic[0])
-// Repay(address indexed reserve, address indexed user, address indexed repayer, uint256 amount, bool useATokens)
-const AAVE_V3_REPAY_TOPIC =
-    "0xa534c8dbe71f871f9f3aecd28b6b5f77b8f1ddc33cfa85a2ec2aab9d39b79f61" as Hex;
-// LiquidationCall(address indexed collateralAsset, address indexed debtAsset, address indexed user, ...)
-const AAVE_V3_LIQUIDATION_TOPIC =
-    "0xe413a321e8681d831f4dbccbca790d2952b56f977908e45be37335533e005286" as Hex;
+// Typed event ABIs for viem getLogs (event + args approach)
+const AAVE_V3_REPAY_EVENT = parseAbiItem(
+    "event Repay(address indexed reserve, address indexed user, address indexed repayer, uint256 amount, bool useATokens)"
+);
+const AAVE_V3_LIQUIDATION_EVENT = parseAbiItem(
+    "event LiquidationCall(address indexed collateralAsset, address indexed debtAsset, address indexed user, uint256 debtToCover, uint256 liquidatedCollateralAmount, address liquidator, bool receiveAToken)"
+);
+const ERC20_TRANSFER_EVENT = parseAbiItem(
+    "event Transfer(address indexed from, address indexed to, uint256 value)"
+);
 
 // ---------------------------------------------------------------------------
 // Client factory — returns null if RPC URL not configured
@@ -73,26 +76,26 @@ async function getWalletAgeDays(
 
         // Find the first block where the nonce (outgoing tx count) > 0
         // Binary search between block 0 and latest
-        let lo = 0n;
+        let lo = BigInt(0);
         let hi = latestBlockNumber;
-        let firstActiveBlock = 0n;
+        let firstActiveBlock = BigInt(0);
 
         const latestNonce = await client.getTransactionCount({ address, blockNumber: latestBlockNumber });
         if (latestNonce === 0) return 0; // Never sent a tx
 
         // Binary search for the block where nonce became 1
         while (lo < hi) {
-            const mid = (lo + hi) / 2n;
+            const mid = (lo + hi) / BigInt(2);
             const nonce = await client.getTransactionCount({ address, blockNumber: mid });
             if (nonce === 0) {
-                lo = mid + 1n;
+                lo = mid + BigInt(1);
             } else {
                 firstActiveBlock = mid;
                 hi = mid;
             }
         }
 
-        if (firstActiveBlock === 0n) return 0;
+        if (firstActiveBlock === BigInt(0)) return 0;
 
         const firstBlock = await client.getBlock({ blockNumber: firstActiveBlock });
         const firstTimestamp = Number(firstBlock.timestamp);
@@ -135,13 +138,12 @@ async function getAaveRepayCount(
     address: Address
 ): Promise<number> {
     try {
-        // Aave V3 Repay: user is indexed topic[2] (0=reserve, 1=user, 2=repayer)
-        // We check topic[2] (repayer = the wallet repaying its own debt)
-        const paddedAddress = ("0x" + address.slice(2).padStart(64, "0")) as Hex;
+        // Aave V3 Repay — filter by repayer (the wallet paying back its own debt)
         const logs = await client.getLogs({
             address: AAVE_V3,
-            topics: [AAVE_V3_REPAY_TOPIC, null, paddedAddress],
-            fromBlock: 0n,
+            event: AAVE_V3_REPAY_EVENT,
+            args: { repayer: address },
+            fromBlock: BigInt(0),
             toBlock: "latest",
         });
         return logs.length;
@@ -155,12 +157,12 @@ async function getAaveLiquidationCount(
     address: Address
 ): Promise<number> {
     try {
-        // LiquidationCall: user is indexed topic[3]
-        const paddedAddress = ("0x" + address.slice(2).padStart(64, "0")) as Hex;
+        // Aave V3 LiquidationCall — filter by user (the wallet that got liquidated)
         const logs = await client.getLogs({
             address: AAVE_V3,
-            topics: [AAVE_V3_LIQUIDATION_TOPIC, null, null, paddedAddress],
-            fromBlock: 0n,
+            event: AAVE_V3_LIQUIDATION_EVENT,
+            args: { user: address },
+            fromBlock: BigInt(0),
             toBlock: "latest",
         });
         return logs.length;
@@ -170,11 +172,8 @@ async function getAaveLiquidationCount(
 }
 
 // ---------------------------------------------------------------------------
-// Protocol activity detection via getLogs (Transfer events to/from address)
+// Protocol activity detection via Transfer events received by the wallet
 // ---------------------------------------------------------------------------
-
-// ERC-20 Transfer topic
-const TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef" as Hex;
 
 async function countProtocolInteractions(
     client: ReturnType<typeof createPublicClient>,
@@ -182,13 +181,12 @@ async function countProtocolInteractions(
     protocolAddress: Address
 ): Promise<number> {
     try {
-        // Count Transfer events from the protocol contract to the user (received tokens)
-        // This is a proxy for protocol interaction depth
-        const paddedAddress = ("0x" + address.slice(2).padStart(64, "0")) as Hex;
+        // ERC-20 Transfer events TO the user FROM the protocol contract — proxy for interaction depth
         const logs = await client.getLogs({
             address: protocolAddress,
-            topics: [TRANSFER_TOPIC, null, paddedAddress],
-            fromBlock: 0n,
+            event: ERC20_TRANSFER_EVENT,
+            args: { to: address },
+            fromBlock: BigInt(0),
             toBlock: "latest",
         });
         return logs.length;
@@ -223,7 +221,7 @@ export async function analyzeEthereumData(address: string): Promise<EVMData | nu
         ] = await Promise.all([
             getWalletAgeDays(client, addr),
             client.getTransactionCount({ address: addr }).catch(() => 0),
-            client.getBalance({ address: addr }).catch(() => 0n),
+            client.getBalance({ address: addr }).catch(() => BigInt(0)),
             getTokenBalance(client, USDC, addr, 6),
             getTokenBalance(client, USDT, addr, 6),
             getTokenBalance(client, LIDO_STETH, addr, 18),

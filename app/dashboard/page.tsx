@@ -727,7 +727,7 @@ function DashboardContent() {
                                 </div>
 
                                 {/* Ethereum Wallet Card — shown only when window.ethereum is available */}
-                                {typeof window !== "undefined" && (window as unknown as { ethereum?: unknown }).ethereum && (
+                                {typeof window !== "undefined" && !!(window as unknown as { ethereum?: unknown }).ethereum && (
                                     <motion.div
                                         initial={{ opacity: 0, y: 20 }}
                                         animate={{ opacity: 1, y: 0 }}
