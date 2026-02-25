@@ -17,6 +17,7 @@ import type {
     OnChainScore,
     FinancialScore,
     GitHubScore,
+    EVMScore,
     ScoreTier,
 } from "@/types";
 
@@ -24,17 +25,73 @@ interface AssembleParams {
     onChain: OnChainScore;
     financial: FinancialScore | null;
     github: GitHubScore | null;
+    ethereum?: EVMScore | null;
     /** Number of additional verified wallets (beyond primary). Max useful: 2. */
     secondaryWalletCount?: number;
+}
+
+// ---------------------------------------------------------------------------
+// Multi-chain blending
+// ---------------------------------------------------------------------------
+
+/**
+ * Blend Solana + Ethereum scores into a single OnChainScore.
+ * Chains with stronger signals dominate proportionally (up to 95/5 skew).
+ */
+export function blendChainScores(solana: OnChainScore, evm: EVMScore): OnChainScore {
+    // Signal strength proxy: score / 500 (0–1)
+    const solanaStrength = Math.min(1, solana.score / 500);
+    const evmStrength = Math.min(1, evm.score / 500);
+
+    const total = solanaStrength + evmStrength;
+    let solWeight = 0.5;
+    let evmWeight = 0.5;
+
+    if (total > 0.01) {
+        solWeight = solanaStrength / total;
+        evmWeight = evmStrength / total;
+
+        // Extreme skew: if one chain is much stronger, push toward 95/5
+        if (solanaStrength > 0.8 && evmStrength < 0.2) {
+            solWeight = 0.95; evmWeight = 0.05;
+        } else if (evmStrength > 0.8 && solanaStrength < 0.2) {
+            evmWeight = 0.95; solWeight = 0.05;
+        }
+    }
+
+    const blend = (a: number, b: number) =>
+        Math.floor(a * solWeight + b * evmWeight);
+
+    const walletAge      = blend(solana.breakdown.walletAge,         evm.breakdown.walletAge);
+    const deFiActivity   = blend(solana.breakdown.deFiActivity,      evm.breakdown.deFiActivity);
+    const repayment      = blend(solana.breakdown.repaymentHistory,  evm.breakdown.repaymentHistory);
+    const staking        = blend(solana.breakdown.staking,           evm.breakdown.staking);
+    const stablecoin     = blend(solana.breakdown.stablecoinCapital, evm.breakdown.stablecoinCapital);
+
+    return {
+        score: Math.min(500, walletAge + deFiActivity + repayment + staking + stablecoin),
+        breakdown: {
+            walletAge,
+            deFiActivity,
+            repaymentHistory: repayment,
+            staking,
+            stablecoinCapital: stablecoin,
+        },
+    };
 }
 
 export function assembleKiteScore(
     data: AssembleParams,
     explanation: string
 ): KiteScore {
-    const { onChainWeight, financialWeight, totalStrength } = calculateDynamicWeights(data.onChain, data.financial);
+    // Blend Solana + Ethereum before the 5-factor calculation
+    const effectiveOnChain = data.ethereum
+        ? blendChainScores(data.onChain, data.ethereum)
+        : data.onChain;
 
-    const breakdown = calculateFiveFactorScore(data.onChain, data.financial, { onChain: onChainWeight, financial: financialWeight });
+    const { onChainWeight, financialWeight, totalStrength } = calculateDynamicWeights(effectiveOnChain, data.financial);
+
+    const breakdown = calculateFiveFactorScore(effectiveOnChain, data.financial, { onChain: onChainWeight, financial: financialWeight });
 
     // Sum up the 5 factors
     let coreScore =
@@ -75,7 +132,7 @@ export function assembleKiteScore(
         total,
         tier,
         breakdown: {
-            onChain: data.onChain,
+            onChain: effectiveOnChain,
             financial: data.financial,
             github: data.github,
             fiveFactor: breakdown,

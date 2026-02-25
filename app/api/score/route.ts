@@ -13,6 +13,7 @@ import { NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { verifyWalletSignature } from "@/lib/wallet-verify";
 import { analyzeSolanaData, scoreOnChain } from "@/lib/solana";
+import { analyzeEthereumData, scoreEVM } from "@/lib/ethereum";
 import { fetchGitHubData, scoreGitHub } from "@/lib/github";
 import { plaidClient } from "@/lib/plaid";
 import { scoreFinancial } from "@/lib/reclaim";
@@ -122,6 +123,27 @@ export async function POST(req: NextRequest) {
         // 2. Fetch & Score On-Chain Data
         const onChainData = await analyzeSolanaData(walletAddress);
         const onChainScore = scoreOnChain(onChainData);
+
+        // 2b. Ethereum scoring (only for authenticated users with a linked ETH wallet)
+        let evmScore = null;
+        if (userId) {
+            try {
+                const { createServerSupabaseClient } = await import("@/lib/supabase");
+                const supabase = createServerSupabaseClient();
+                const { data: ethConn } = await supabase
+                    .from("user_connections")
+                    .select("provider_user_id")
+                    .eq("user_id", userId)
+                    .eq("provider", "ethereum_wallet")
+                    .single();
+                if (ethConn?.provider_user_id) {
+                    const evmData = await analyzeEthereumData(ethConn.provider_user_id);
+                    evmScore = evmData ? scoreEVM(evmData) : null;
+                }
+            } catch {
+                // Non-fatal: ETH scoring is optional
+            }
+        }
 
         // 3. Fetch & Score Financial Data (Plaid)
         let financialScore = null;
@@ -266,6 +288,7 @@ Provide a 2-sentence explanation of their creditworthiness based heavily on thei
             onChain: onChainScore,
             financial: financialScore,
             github: githubScore,
+            ethereum: evmScore,
             secondaryWalletCount,
         }, explanation);
 
@@ -276,6 +299,7 @@ Provide a 2-sentence explanation of their creditworthiness based heavily on thei
         if (userId) {
             try {
                 const sources = getConnectedSources(kiteScore.breakdown);
+                if (evmScore) sources.push("ethereum_active");
                 await saveScore(userId, kiteScore, attestation, sources);
 
                 // Fire-and-forget: notify lender webhooks subscribed to this wallet

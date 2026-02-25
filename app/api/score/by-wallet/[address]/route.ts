@@ -40,6 +40,7 @@ import { authenticateApiKey, checkLenderRateLimit } from "@/lib/api-key-auth";
 import type { SignedAttestation } from "@/types";
 
 const SOLANA_ADDRESS_REGEX = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+const ETH_ADDRESS_REGEX = /^0x[0-9a-fA-F]{40}$/;
 
 function verifyAttestation(attestation: SignedAttestation, total: number, tier: string, sources: string[]): boolean {
     try {
@@ -89,12 +90,18 @@ export async function GET(
 
     const { address } = await params;
 
-    if (!SOLANA_ADDRESS_REGEX.test(address)) {
+    const isEth = ETH_ADDRESS_REGEX.test(address);
+    const isSolana = SOLANA_ADDRESS_REGEX.test(address);
+
+    if (!isEth && !isSolana) {
         return NextResponse.json(
-            { error: "Invalid Solana address" },
+            { error: "Invalid wallet address" },
             { status: 400, headers: CORS_HEADERS }
         );
     }
+
+    const provider = isEth ? "ethereum_wallet" : "solana_wallet";
+    const lookupAddress = isEth ? address.toLowerCase() : address;
 
     const supabase = createServerSupabaseClient();
 
@@ -102,8 +109,8 @@ export async function GET(
     const { data: connection } = await supabase
         .from("user_connections")
         .select("user_id")
-        .eq("provider", "solana_wallet")
-        .eq("provider_user_id", address)
+        .eq("provider", provider)
+        .eq("provider_user_id", lookupAddress)
         .single();
 
     if (!connection) {

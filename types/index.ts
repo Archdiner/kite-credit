@@ -81,6 +81,38 @@ export interface OnChainScore {
 }
 
 // ---------------------------------------------------------------------------
+// Ethereum (EVM) on-chain data
+// ---------------------------------------------------------------------------
+
+export interface EVMData {
+  chain: "ethereum";
+  walletAddress: string;
+  walletAgeDays: number;
+  totalTransactions: number;
+  deFiInteractions: {
+    protocol: string;
+    count: number;
+    category: "lending" | "dex" | "staking";
+  }[];
+  lendingRepayments: number;
+  liquidationCount: number;
+  ethBalance: number;
+  stablecoinBalance: number;
+  stakingBalance: number;
+}
+
+export interface EVMScore {
+  score: number; // 0-500
+  breakdown: {
+    walletAge: number;          // 0-125
+    deFiActivity: number;       // 0-165
+    repaymentHistory: number;   // 0-125
+    staking: number;            // 0-60
+    stablecoinCapital: number;  // 0-25
+  };
+}
+
+// ---------------------------------------------------------------------------
 // GitHub (Professional) data
 // ---------------------------------------------------------------------------
 

@@ -49,6 +49,9 @@ function DashboardContent() {
     const [viewMode, setViewMode] = useState<ViewMode>("crypto");
     const [changingWallet, setChangingWallet] = useState(false);
     const [changingGitHub, setChangingGitHub] = useState(false);
+    const [ethAddress, setEthAddress] = useState<string | null>(null);
+    const [ethLinking, setEthLinking] = useState(false);
+    const [ethError, setEthError] = useState<string | null>(null);
     const [isGithubOnlyScore, setIsGithubOnlyScore] = useState(false);
     const [mobileAddressInput, setMobileAddressInput] = useState("");
     const [mobileAddressError, setMobileAddressError] = useState<string | null>(null);
@@ -90,6 +93,9 @@ function DashboardContent() {
                             }
                             if (conn.provider === "solana_wallet" && isMobile && conn.provider_user_id) {
                                 setMobileWalletAddress(conn.provider_user_id);
+                            }
+                            if (conn.provider === "ethereum_wallet" && conn.provider_user_id) {
+                                setEthAddress(conn.provider_user_id);
                             }
                         }
                     }
@@ -386,6 +392,52 @@ function DashboardContent() {
         }
     };
 
+    const handleLinkEthWallet = async () => {
+        setEthLinking(true);
+        setEthError(null);
+        try {
+            const ethereum = (window as unknown as { ethereum?: { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> } }).ethereum;
+            if (!ethereum) {
+                setEthError("No Ethereum wallet detected. Install MetaMask or a compatible wallet.");
+                return;
+            }
+
+            const accounts = await ethereum.request({ method: "eth_requestAccounts" }) as string[];
+            const account = accounts[0];
+            if (!account) {
+                setEthError("No account returned from wallet.");
+                return;
+            }
+
+            const nonceRes = await fetch("/api/user/link-wallet");
+            const nonceData = await nonceRes.json();
+            if (!nonceData.success) throw new Error("Failed to get nonce");
+            const { nonce } = nonceData.data as { nonce: string };
+
+            const signature = await ethereum.request({
+                method: "personal_sign",
+                params: [nonce, account],
+            }) as string;
+
+            const linkRes = await fetch("/api/user/link-wallet", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+                },
+                body: JSON.stringify({ address: account, signature, nonce }),
+            });
+            const linkData = await linkRes.json();
+            if (!linkData.success) throw new Error(linkData.error || "Failed to link wallet");
+
+            setEthAddress((linkData.data as { address: string }).address);
+        } catch (err) {
+            setEthError(err instanceof Error ? err.message : "Failed to link Ethereum wallet");
+        } finally {
+            setEthLinking(false);
+        }
+    };
+
     const handleSignOut = async () => {
         await signOut();
         router.push("/auth");
@@ -673,6 +725,55 @@ function DashboardContent() {
                                         </div>
                                     </motion.div>
                                 </div>
+
+                                {/* Ethereum Wallet Card — shown only when window.ethereum is available */}
+                                {typeof window !== "undefined" && (window as unknown as { ethereum?: unknown }).ethereum && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: 0.7 }}
+                                        className="relative group mt-4"
+                                    >
+                                        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-teal-600/10 rounded-xl blur-xl opacity-50" />
+                                        <div className="relative bg-slate-900/80 backdrop-blur-lg rounded-xl p-5 border border-emerald-500/20 hover:border-emerald-400/40 transition-all shadow-xl">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-3 h-3 bg-emerald-400 rotate-45" />
+                                                    <h3 className="text-base font-bold text-white tracking-wide uppercase">
+                                                        Ethereum Wallet
+                                                    </h3>
+                                                    <span className="text-[10px] text-emerald-400/60 font-mono tracking-widest uppercase border border-emerald-500/20 px-1.5 py-0.5 rounded">
+                                                        Optional
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <p className="text-xs text-white/50 mb-4 leading-relaxed">
+                                                Link your Ethereum wallet to include Aave, Compound, Uniswap, and Lido activity in your score.
+                                            </p>
+                                            {ethAddress ? (
+                                                <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-400/30 rounded-lg px-4 py-3">
+                                                    <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                                                    <span className="text-sm text-emerald-200 font-mono truncate">
+                                                        {ethAddress.slice(0, 8)}...{ethAddress.slice(-6)}
+                                                    </span>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <button
+                                                        onClick={handleLinkEthWallet}
+                                                        disabled={ethLinking}
+                                                        className="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold tracking-wider uppercase text-sm rounded-lg hover:from-emerald-400 hover:to-teal-500 active:scale-[0.98] transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    >
+                                                        {ethLinking ? "Linking..." : "Link ETH Wallet"}
+                                                    </button>
+                                                    {ethError && (
+                                                        <p className="mt-2 text-xs text-red-400">{ethError}</p>
+                                                    )}
+                                                </>
+                                            )}
+                                        </div>
+                                    </motion.div>
+                                )}
 
                                 {/* Calculate Buttons */}
                                 {canCalculateAnyScore && (

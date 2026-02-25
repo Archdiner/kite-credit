@@ -29,7 +29,8 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-plaid-link": "^4.1.1",
-    "tweetnacl": "^1.0.3"
+    "tweetnacl": "^1.0.3",
+    "viem": "^2.46.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
