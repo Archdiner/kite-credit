@@ -18,6 +18,8 @@ import ScoreBreakdownPanel from "@/components/dashboard/ScoreBreakdownPanel";
 import AttestationCard from "@/components/dashboard/AttestationCard";
 import ScoreRadarChart from "@/components/dashboard/ScoreRadarChart";
 import ShareScoreCard from "@/components/dashboard/ShareScoreCard";
+import PrimaryWalletConnect from "@/components/dashboard/PrimaryWalletConnect";
+import SecondaryConnections from "@/components/dashboard/SecondaryConnections";
 import Link from "next/link";
 import type { KiteScore, ZKAttestation } from "@/types";
 import { getScoreAge } from "@/lib/freshness";
@@ -191,7 +193,7 @@ function DashboardContent() {
 
     useEffect(() => {
         if (!isMobile && wallet && !connected && !connecting) {
-            connect().catch(() => {});
+            connect().catch(() => { });
         }
     }, [isMobile, wallet, connected, connecting, connect]);
 
@@ -220,7 +222,7 @@ function DashboardContent() {
                     setChangingWallet(false);
                 });
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- changingWallet intentionally excluded: including it would re-trigger the effect after setChangingWallet(false) resolves, causing a duplicate API call
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- changingWallet intentionally excluded: including it would re-trigger the effect after setChangingWallet(false) resolves, causing a duplicate API call
     }, [isMobile, connected, publicKey, accessToken, disconnect]);
 
     const handleCalculateScore = useCallback(async () => {
@@ -449,8 +451,8 @@ function DashboardContent() {
 
     if (authLoading || !user || restoringData) {
         return (
-            <div className="relative min-h-screen overflow-hidden font-sans">
-                <div className="fixed inset-0 z-0">
+            <div className="relative min-h-screen overflow-hidden font-sans bg-slate-950">
+                <div className="fixed inset-0 z-0 opacity-40 mix-blend-luminosity">
                     <Image
                         src="/city_background.png"
                         alt=""
@@ -459,7 +461,7 @@ function DashboardContent() {
                         priority
                         quality={90}
                     />
-                    <div className="absolute inset-0 bg-gradient-to-b from-slate-900/40 via-slate-900/60 to-slate-900/90" />
+                    <div className="absolute inset-0 bg-gradient-to-b from-slate-950/80 via-slate-900/90 to-slate-950" />
                 </div>
                 <div className="relative z-10 flex items-center justify-center min-h-screen">
                     <motion.div
@@ -473,9 +475,9 @@ function DashboardContent() {
     }
 
     return (
-        <div className="relative min-h-screen overflow-hidden font-sans">
+        <div className="relative min-h-screen overflow-hidden font-sans bg-slate-950 text-slate-50 selection:bg-sky-500/30">
             {/* City Background */}
-            <div className="fixed inset-0 z-0">
+            <div className="fixed inset-0 z-0 opacity-40 mix-blend-luminosity">
                 <Image
                     src="/city_background.png"
                     alt=""
@@ -484,30 +486,37 @@ function DashboardContent() {
                     priority
                     quality={90}
                 />
-                <div className="absolute inset-0 bg-gradient-to-b from-slate-900/40 via-slate-900/60 to-slate-900/90" />
+                <div className="absolute inset-0 bg-gradient-to-b from-slate-950/80 via-slate-900/90 to-slate-950" />
             </div>
+
+            {/* Subtle animated grid overlay */}
+            <div className="fixed inset-0 z-0 bg-[url('/grid.svg')] bg-center opacity-[0.03] pointer-events-none" />
 
             {/* Content */}
             <div className="relative z-10">
                 {/* Header */}
-                <header className="px-4 sm:px-6 md:px-12 pt-6 sm:pt-8 pb-4">
+                <header className="px-4 sm:px-6 md:px-12 pt-6 sm:pt-8 pb-4 border-b border-white/5 bg-slate-900/20 backdrop-blur-xl sticky top-0 z-50">
                     <div className="max-w-6xl mx-auto flex items-center justify-between gap-2">
-                        <Link href="/" className="flex items-center gap-2 sm:gap-3 min-w-0 shrink-0">
-                            <div className="w-4 h-4 sm:w-5 sm:h-5 bg-sky-400 rotate-45 shadow-[0_0_15px_rgba(56,189,248,0.6)]" />
-                            <h1 className="text-base sm:text-xl font-bold text-white tracking-wider uppercase">
-                                Kite Credit
+                        <Link href="/" className="flex items-center gap-3 group min-w-0 shrink-0">
+                            <motion.div
+                                animate={{ rotate: 360 }}
+                                transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                                className="w-5 h-5 bg-gradient-to-tr from-sky-400 to-blue-600 rotate-45 shadow-[0_0_15px_rgba(56,189,248,0.4)] group-hover:shadow-[0_0_25px_rgba(56,189,248,0.6)] transition-all"
+                            />
+                            <h1 className="text-lg sm:text-xl font-black tracking-[0.2em] uppercase bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
+                                Kite
                             </h1>
                         </Link>
                         <div className="flex items-center gap-2 sm:gap-4">
-                            <div className="hidden sm:flex items-center gap-2 bg-white/5 border border-white/10 px-3 py-1.5 rounded-lg">
-                                <div className="w-2 h-2 rounded-full bg-emerald-400" />
-                                <span className="text-xs text-white/60 font-mono">
+                            <div className="hidden sm:flex items-center gap-2 bg-slate-800/50 border border-white/5 px-3 py-1.5 rounded-lg backdrop-blur-md">
+                                <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.5)]" />
+                                <span className="text-xs text-white/80 font-mono tracking-wide">
                                     {user.name || user.email}
                                 </span>
                             </div>
                             <button
                                 onClick={handleSignOut}
-                                className="text-xs text-white/40 hover:text-white/70 transition-colors tracking-widest uppercase border border-white/10 px-2.5 py-1.5 sm:px-3 rounded-lg hover:border-white/20"
+                                className="text-[10px] sm:text-xs text-white/50 hover:text-white transition-colors tracking-[0.1em] uppercase border border-white/10 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg hover:border-white/30 hover:bg-white/5"
                             >
                                 Sign Out
                             </button>
@@ -516,7 +525,7 @@ function DashboardContent() {
                 </header>
 
                 {/* Main Content */}
-                <main className="max-w-6xl mx-auto px-4 sm:px-6 md:px-12 py-6 sm:py-8">
+                <main className="max-w-6xl mx-auto px-4 sm:px-6 md:px-12 py-10 sm:py-16">
                     <AnimatePresence mode="wait">
                         {flowState === "connect" && (
                             <motion.div
@@ -526,321 +535,83 @@ function DashboardContent() {
                                 exit={{ opacity: 0, y: -30 }}
                                 transition={{ duration: 0.6 }}
                             >
-                                {/* Hero Section */}
-                                <div className="text-center mb-8 sm:mb-16">
-                                    <motion.p
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        transition={{ delay: 0.2 }}
-                                        className="text-xs md:text-sm text-sky-300 font-mono tracking-[0.3em] uppercase mb-4"
-                                    >
-                                        Decentralized Credit Protocol
-                                    </motion.p>
-                                    <motion.h2
-                                        initial={{ opacity: 0, y: 20 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ delay: 0.3, duration: 0.6 }}
-                                        className="text-4xl md:text-7xl font-black text-white tracking-tighter mb-6 drop-shadow-2xl"
-                                    >
-                                        YOUR KITE SCORE
-                                    </motion.h2>
-                                    <div className="h-1 w-24 bg-gradient-to-r from-orange-500 to-sky-400 mx-auto rounded-full shadow-[0_0_20px_rgba(249,115,22,0.4)]" />
-                                </div>
+                                {!isWalletConnected && !ethAddress ? (
+                                    <PrimaryWalletConnect
+                                        onConnectEthereum={handleLinkEthWallet}
+                                        ethLinking={ethLinking}
+                                        ethError={ethError}
+                                    />
+                                ) : (
+                                    <div className="space-y-12">
+                                        <SecondaryConnections
+                                            githubUser={githubUser}
+                                            changingGitHub={changingGitHub}
+                                            onConnectGitHub={handleConnectGitHub}
+                                            onChangeGitHub={handleChangeGitHub}
+                                        />
 
-                                {/* Source Connection Cards */}
-                                <div className="grid md:grid-cols-3 gap-4 sm:gap-6 md:gap-8 mb-8 sm:mb-12">
-                                    {/* Solana Wallet Card */}
-                                    <motion.div
-                                        initial={{ opacity: 0, y: 30 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ delay: 0.4 }}
-                                        className="relative group"
-                                    >
-                                        <div className="absolute inset-0 bg-gradient-to-br from-sky-500/20 to-blue-600/20 rounded-xl blur-xl group-hover:blur-2xl transition-all opacity-60" />
-                                        <div className="relative bg-slate-900/80 backdrop-blur-lg rounded-xl p-6 border border-sky-500/20 hover:border-sky-400/40 transition-all shadow-2xl">
-                                            <div className="flex items-center gap-3 mb-4">
-                                                <div className="w-3 h-3 bg-sky-400 rotate-45" />
-                                                <h3 className="text-lg font-bold text-white tracking-wide uppercase">
-                                                    On-Chain
-                                                </h3>
-                                            </div>
-                                            <p className="text-sm text-white/60 mb-6 leading-relaxed">
-                                                Wallet age, DeFi history, staking activity, and transaction patterns.
-                                            </p>
-                                            {isWalletConnected ? (
-                                                <div className="space-y-2">
-                                                    <div className="flex items-center gap-2 bg-sky-500/10 border border-sky-400/30 rounded-lg px-4 py-3">
-                                                        <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                                                        <span className="text-sm text-sky-200 font-mono truncate">
-                                                            {effectiveWalletAddress
-                                                                ? `${effectiveWalletAddress.slice(0, 8)}...${effectiveWalletAddress.slice(-6)}`
-                                                                : ""}
-                                                        </span>
-                                                    </div>
-                                                    <button
-                                                        onClick={handleChangeWallet}
-                                                        disabled={changingWallet}
-                                                        className="w-full py-2 text-[11px] text-sky-300/60 hover:text-sky-200 font-mono tracking-wider uppercase border border-sky-500/10 hover:border-sky-400/30 rounded-lg transition-all disabled:opacity-50"
-                                                    >
-                                                        {changingWallet ? "Switching..." : "Connect Different Wallet"}
-                                                    </button>
-                                                </div>
-                                            ) : isMobile ? (
-                                                <div className="space-y-3">
-                                                    <button
-                                                        onClick={handlePhantomConnect}
-                                                        className="w-full py-3 bg-gradient-to-r from-sky-500 to-blue-600 text-white font-bold tracking-wider uppercase text-sm rounded-lg active:scale-[0.98] transition-all shadow-lg flex items-center justify-center gap-2"
-                                                    >
-                                                        <svg width="18" height="18" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                            <rect width="128" height="128" rx="26" fill="url(#phantom-grad)"/>
-                                                            <path d="M110.584 64.914H99.142C99.142 41.066 79.8 21.724 55.952 21.724C32.516 21.724 13.44 40.378 12.82 63.658C12.186 87.49 33.038 108.276 56.87 108.276H60.064C81.054 108.276 110.584 87.49 110.584 64.914Z" fill="url(#phantom-grad2)"/>
-                                                            <path d="M86.354 64.914C86.354 68.108 83.71 70.752 80.516 70.752C77.322 70.752 74.678 68.108 74.678 64.914C74.678 61.72 77.322 59.076 80.516 59.076C83.71 59.076 86.354 61.72 86.354 64.914Z" fill="white"/>
-                                                            <path d="M67.354 64.914C67.354 68.108 64.71 70.752 61.516 70.752C58.322 70.752 55.678 68.108 55.678 64.914C55.678 61.72 58.322 59.076 61.516 59.076C64.71 59.076 67.354 61.72 67.354 64.914Z" fill="white"/>
-                                                            <defs>
-                                                                <linearGradient id="phantom-grad" x1="64" y1="0" x2="64" y2="128" gradientUnits="userSpaceOnUse"><stop stopColor="#534BB1"/><stop offset="1" stopColor="#551BF9"/></linearGradient>
-                                                                <linearGradient id="phantom-grad2" x1="61.702" y1="21.724" x2="61.702" y2="108.276" gradientUnits="userSpaceOnUse"><stop stopColor="#534BB1"/><stop offset="1" stopColor="#551BF9"/></linearGradient>
-                                                            </defs>
-                                                        </svg>
-                                                        Connect with Phantom
-                                                    </button>
-
-                                                    {!showManualInput ? (
-                                                        <button
-                                                            onClick={() => setShowManualInput(true)}
-                                                            className="w-full py-2 text-[11px] text-sky-300/50 hover:text-sky-200 font-mono tracking-wider uppercase border border-sky-500/10 hover:border-sky-400/20 rounded-lg transition-all"
-                                                        >
-                                                            Or enter address manually
-                                                        </button>
-                                                    ) : (
-                                                        <>
-                                                            <input
-                                                                type="text"
-                                                                value={mobileAddressInput}
-                                                                onChange={(e) => {
-                                                                    setMobileAddressInput(e.target.value);
-                                                                    setMobileAddressError(null);
-                                                                }}
-                                                                placeholder="Paste your Solana address"
-                                                                className="w-full px-4 py-3 bg-white/5 border border-sky-500/20 rounded-lg text-white text-sm placeholder-white/30 focus:outline-none focus:border-sky-400/50 focus:ring-1 focus:ring-sky-400/30 transition-all font-mono"
-                                                                autoComplete="off"
-                                                                autoCorrect="off"
-                                                                spellCheck={false}
-                                                            />
-                                                            {mobileAddressError && (
-                                                                <p className="text-xs text-red-400">{mobileAddressError}</p>
-                                                            )}
-                                                            <button
-                                                                onClick={handleMobileWalletSubmit}
-                                                                disabled={!mobileAddressInput.trim()}
-                                                                className="w-full py-3 bg-white/10 border border-sky-500/20 text-white font-bold tracking-wider uppercase text-sm rounded-lg active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                                            >
-                                                                Submit Address
-                                                            </button>
-                                                            <p className="text-[10px] text-amber-300/50 text-center leading-relaxed">
-                                                                Manual addresses cannot be verified for ownership. Use Phantom for a verified connection.
-                                                            </p>
-                                                        </>
-                                                    )}
-                                                </div>
-                                            ) : (
-                                                <button
-                                                    className="w-full py-3.5 sm:py-3 bg-gradient-to-r from-sky-500 to-blue-600 text-white font-bold tracking-wider uppercase text-sm rounded-lg hover:from-sky-400 hover:to-blue-500 active:scale-[0.98] transition-all shadow-lg"
-                                                    onClick={() => setVisible(true)}
-                                                >
-                                                    Connect Wallet
-                                                </button>
-                                            )}
-                                        </div>
-                                    </motion.div>
-
-                                    {/* Financial Verification Card (Coming Soon) */}
-                                    <motion.div
-                                        initial={{ opacity: 0, y: 30 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ delay: 0.5 }}
-                                        className="relative group overflow-hidden"
-                                    >
-                                        <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 to-amber-600/10 rounded-xl blur-xl opacity-40" />
-                                        <div className="relative bg-slate-900/40 backdrop-blur-lg rounded-xl p-6 border border-white/5 shadow-2xl h-full flex flex-col grayscale opacity-70 hover:opacity-100 hover:grayscale-0 transition-all duration-500">
-                                            <div className="absolute top-3 right-3 bg-white/10 text-white/60 text-[10px] uppercase font-bold tracking-widest px-2 py-1 rounded border border-white/10">
-                                                Coming Soon
-                                            </div>
-
-                                            <div className="flex items-center gap-3 mb-4">
-                                                <div className="w-3 h-3 bg-orange-400 rotate-45 opacity-50" />
-                                                <h3 className="text-lg font-bold text-white/50 tracking-wide uppercase">
-                                                    Financial
-                                                </h3>
-                                            </div>
-                                            <p className="text-sm text-white/30 mb-6 leading-relaxed">
-                                                ZK-verified bank balance, income consistency, and cash flow health.
-                                            </p>
-
-                                            <div className="mt-auto w-full py-3 bg-white/5 border border-white/5 text-white/20 font-bold tracking-wider uppercase text-sm rounded-lg text-center cursor-not-allowed">
-                                                Connect Bank
-                                            </div>
-                                        </div>
-                                    </motion.div>
-
-                                    {/* GitHub Developer Card */}
-                                    <motion.div
-                                        initial={{ opacity: 0, y: 30 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ delay: 0.6 }}
-                                        className="relative group"
-                                    >
-                                        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/20 to-violet-600/20 rounded-xl blur-xl group-hover:blur-2xl transition-all opacity-60" />
-                                        <div className="relative bg-slate-900/80 backdrop-blur-lg rounded-xl p-6 border border-indigo-500/20 hover:border-indigo-400/40 transition-all shadow-2xl">
-                                            <div className="flex items-center gap-3 mb-4">
-                                                <div className="w-3 h-3 bg-indigo-400 rotate-45" />
-                                                <h3 className="text-lg font-bold text-white tracking-wide uppercase">
-                                                    GitHub
-                                                </h3>
-                                            </div>
-                                            <p className="text-sm text-white/60 mb-6 leading-relaxed">
-                                                Developer reputation, code quality, commit history, and community trust.
-                                            </p>
-                                            {githubUser ? (
-                                                <div className="space-y-2">
-                                                    <div className="flex items-center gap-2 bg-indigo-500/10 border border-indigo-400/30 rounded-lg px-4 py-3">
-                                                        <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                                                        <span className="text-sm text-indigo-200 font-mono">@{githubUser}</span>
-                                                    </div>
-                                                    <button
-                                                        onClick={handleChangeGitHub}
-                                                        disabled={changingGitHub}
-                                                        className="w-full py-2 text-[11px] text-indigo-300/60 hover:text-indigo-200 font-mono tracking-wider uppercase border border-indigo-500/10 hover:border-indigo-400/30 rounded-lg transition-all disabled:opacity-50"
-                                                    >
-                                                        {changingGitHub ? "Switching..." : "Connect Different GitHub"}
-                                                    </button>
-                                                </div>
-                                            ) : (
-                                                <button
-                                                    onClick={handleConnectGitHub}
-                                                    className="w-full py-3.5 sm:py-3 bg-gradient-to-r from-indigo-500 to-violet-600 text-white font-bold tracking-wider uppercase text-sm rounded-lg hover:from-indigo-400 hover:to-violet-500 active:scale-[0.98] transition-all shadow-lg"
-                                                >
-                                                    Connect GitHub
-                                                </button>
-                                            )}
-                                        </div>
-                                    </motion.div>
-                                </div>
-
-                                {/* Ethereum Wallet Card — shown only when window.ethereum is available */}
-                                {typeof window !== "undefined" && !!(window as unknown as { ethereum?: unknown }).ethereum && (
-                                    <motion.div
-                                        initial={{ opacity: 0, y: 20 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ delay: 0.7 }}
-                                        className="relative group mt-4"
-                                    >
-                                        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-teal-600/10 rounded-xl blur-xl opacity-50" />
-                                        <div className="relative bg-slate-900/80 backdrop-blur-lg rounded-xl p-5 border border-emerald-500/20 hover:border-emerald-400/40 transition-all shadow-xl">
-                                            <div className="flex items-center justify-between mb-3">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-3 h-3 bg-emerald-400 rotate-45" />
-                                                    <h3 className="text-base font-bold text-white tracking-wide uppercase">
-                                                        Ethereum Wallet
-                                                    </h3>
-                                                    <span className="text-[10px] text-emerald-400/60 font-mono tracking-widest uppercase border border-emerald-500/20 px-1.5 py-0.5 rounded">
-                                                        Optional
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            <p className="text-xs text-white/50 mb-4 leading-relaxed">
-                                                Link your Ethereum wallet to include Aave, Compound, Uniswap, and Lido activity in your score.
-                                            </p>
-                                            {ethAddress ? (
-                                                <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-400/30 rounded-lg px-4 py-3">
+                                        {/* Connected Primary Wallet Status */}
+                                        <motion.div
+                                            initial={{ opacity: 0, y: 20 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ delay: 0.6 }}
+                                            className="max-w-3xl mx-auto bg-slate-900/40 backdrop-blur-md rounded-2xl p-6 border border-white/5 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4"
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center shrink-0 border border-white/10">
                                                     <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                                                    <span className="text-sm text-emerald-200 font-mono truncate">
-                                                        {ethAddress.slice(0, 8)}...{ethAddress.slice(-6)}
-                                                    </span>
                                                 </div>
-                                            ) : (
-                                                <>
-                                                    <button
-                                                        onClick={handleLinkEthWallet}
-                                                        disabled={ethLinking}
-                                                        className="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold tracking-wider uppercase text-sm rounded-lg hover:from-emerald-400 hover:to-teal-500 active:scale-[0.98] transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                                                    >
-                                                        {ethLinking ? "Linking..." : "Link ETH Wallet"}
-                                                    </button>
-                                                    {ethError && (
-                                                        <p className="mt-2 text-xs text-red-400">{ethError}</p>
-                                                    )}
-                                                </>
+                                                <div>
+                                                    <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest mb-1">
+                                                        Primary Identity
+                                                    </p>
+                                                    <p className="text-sm font-mono text-white/90">
+                                                        {isWalletConnected
+                                                            ? (effectiveWalletAddress ? `${effectiveWalletAddress.slice(0, 8)}...${effectiveWalletAddress.slice(-6)}` : "Solana Wallet")
+                                                            : (ethAddress ? `${ethAddress.slice(0, 8)}...${ethAddress.slice(-6)}` : "Ethereum Wallet")
+                                                        }
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            {(isWalletConnected && !isMobile) && (
+                                                <button
+                                                    onClick={handleChangeWallet}
+                                                    disabled={changingWallet}
+                                                    className="text-[11px] text-white/40 hover:text-white font-mono tracking-wider uppercase px-4 py-2 rounded-lg border border-white/10 hover:border-white/20 transition-all disabled:opacity-50"
+                                                >
+                                                    {changingWallet ? "Switching..." : "Switch Wallet"}
+                                                </button>
                                             )}
-                                        </div>
-                                    </motion.div>
-                                )}
+                                        </motion.div>
 
-                                {/* Calculate Buttons */}
-                                {canCalculateAnyScore && (
-                                    <motion.div
-                                        initial={{ opacity: 0, y: 20 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ delay: 0.8 }}
-                                        className="text-center space-y-4"
-                                    >
-                                        {canCalculateFullScore && (
-                                            <>
+                                        {/* Calculate Buttons */}
+                                        {canCalculateAnyScore && (
+                                            <motion.div
+                                                initial={{ opacity: 0, scale: 0.95 }}
+                                                animate={{ opacity: 1, scale: 1 }}
+                                                transition={{ delay: 0.8 }}
+                                                className="text-center pt-8"
+                                            >
                                                 <button
                                                     onClick={handleCalculateScore}
-                                                    className="relative group px-12 py-5 text-white font-bold tracking-[0.2em] uppercase overflow-hidden rounded-sm"
+                                                    className="relative group px-12 py-5 text-white font-bold tracking-[0.2em] uppercase overflow-hidden rounded-xl shadow-2xl"
                                                 >
                                                     <div className="absolute inset-0 bg-gradient-to-r from-orange-500 via-sky-500 to-indigo-500 transition-opacity group-hover:opacity-90" />
                                                     <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-r from-orange-400 via-sky-400 to-indigo-400" />
                                                     <div className="absolute inset-0 blur-xl bg-gradient-to-r from-orange-500/40 via-sky-500/40 to-indigo-500/40 group-hover:blur-2xl transition-all" />
-                                                    <span className="relative z-10 text-sm md:text-base">Calculate Kite Score</span>
+                                                    <span className="relative z-10 text-sm md:text-lg">Calculate Kite Score</span>
                                                 </button>
 
                                                 <p className="mt-6 text-xs text-white/30 font-mono tracking-wider">
                                                     {isMobile && mobileWalletSignature
                                                         ? "Wallet verified via Phantom. Ready to calculate."
                                                         : isMobile
-                                                        ? "Score is calculated from public on-chain activity"
-                                                        : "Your wallet will sign a verification message to prove ownership"}
+                                                            ? "Score is calculated from public on-chain activity"
+                                                            : "Your wallet will sign a verification message to prove ownership"}
                                                 </p>
-                                            </>
+                                            </motion.div>
                                         )}
-
-                                        {canCalculateDevScore && (
-                                            <>
-                                                <button
-                                                    onClick={handleCalculateDevScore}
-                                                    className="relative group px-12 py-5 text-white font-bold tracking-[0.2em] uppercase overflow-hidden rounded-sm"
-                                                >
-                                                    <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500 transition-opacity group-hover:opacity-90" />
-                                                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-r from-indigo-400 via-violet-400 to-purple-400" />
-                                                    <div className="absolute inset-0 blur-xl bg-gradient-to-r from-indigo-500/40 via-violet-500/40 to-purple-500/40 group-hover:blur-2xl transition-all" />
-                                                    <span className="relative z-10 text-sm md:text-base">Calculate Developer Score</span>
-                                                </button>
-
-                                                {/* Developer-only warning */}
-                                                <motion.div
-                                                    initial={{ opacity: 0 }}
-                                                    animate={{ opacity: 1 }}
-                                                    transition={{ delay: 1 }}
-                                                    className="max-w-lg mx-auto mt-4 bg-indigo-500/10 border border-indigo-400/20 rounded-xl p-4"
-                                                >
-                                                    <div className="flex items-start gap-3">
-                                                        <div className="w-2 h-2 bg-indigo-400 rotate-45 mt-1.5 flex-shrink-0" />
-                                                        <div className="text-left">
-                                                            <p className="text-xs font-bold text-indigo-300/80 tracking-wider uppercase mb-1">
-                                                                Developer Score Only
-                                                            </p>
-                                                            <p className="text-xs text-white/50 leading-relaxed">
-                                                                This score evaluates technical reputation based on your GitHub activity.
-                                                                It is designed for developers and does not provide financial or credit insights.
-                                                                Connect a wallet for a comprehensive credit score.
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                </motion.div>
-                                            </>
-                                        )}
-                                    </motion.div>
+                                    </div>
                                 )}
 
                                 {/* Error message */}

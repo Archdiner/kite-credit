@@ -81,10 +81,8 @@ export async function GET(request: NextRequest) {
 
             if (user) {
                 // Fetch GitHub username
-                const ghUserRes = await fetch("https://api.github.com/user", {
-                    headers: { Authorization: `Bearer ${tokenData.access_token}` },
-                });
-                const ghUserData = await ghUserRes.json();
+                const { getUserProfile } = await import("@/lib/github");
+                const ghUserData = await getUserProfile(tokenData.access_token);
 
                 // Check if this GitHub account is already linked to a different user
                 const { createServerSupabaseClient } = await import("@/lib/supabase");

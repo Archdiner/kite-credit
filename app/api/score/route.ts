@@ -121,8 +121,15 @@ export async function POST(req: NextRequest) {
         }
 
         // 2. Fetch & Score On-Chain Data
-        const onChainData = await analyzeSolanaData(walletAddress);
-        const onChainScore = scoreOnChain(onChainData);
+        let onChainScore = null;
+        let onChainData = null;
+        try {
+            onChainData = await analyzeSolanaData(walletAddress);
+            onChainScore = scoreOnChain(onChainData);
+        } catch (error) {
+            console.error("[score] Solana on-chain analysis failed:", error);
+            return errorResponse("Failed to fetch Solana on-chain data from RPC", 502);
+        }
 
         // 2b. Ethereum scoring (only for authenticated users with a linked ETH wallet)
         let evmScore = null;
@@ -140,7 +147,8 @@ export async function POST(req: NextRequest) {
                     const evmData = await analyzeEthereumData(ethConn.provider_user_id);
                     evmScore = evmData ? scoreEVM(evmData) : null;
                 }
-            } catch {
+            } catch (error) {
+                console.error("[score] EVM analysis failed:", error);
                 // Non-fatal: ETH scoring is optional
             }
         }
