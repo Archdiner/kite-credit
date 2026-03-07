@@ -117,7 +117,8 @@ Provide a 2-sentence explanation of their developer reputation and technical cre
             timestamp: new Date().toISOString(),
         };
 
-        const attestation = generateAttestation(kiteScore);
+        const pseudoWallet = `github:${githubData.username}`;
+        const attestation = await generateAttestation(kiteScore, pseudoWallet);
 
         if (userId) {
             try {

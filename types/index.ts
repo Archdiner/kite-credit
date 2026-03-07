@@ -208,13 +208,15 @@ export interface KiteScore {
 // attestation wire format. Internal code should use these fields as-is
 // when serializing/deserializing attestations.
 export interface SignedAttestation {
+  wallet_address: string;        // Binds the score to the specific user wallet
   kite_score: number;
   tier: ScoreTier;
   verified_attributes: string[]; // e.g. ["github_linked", "solana_active", "bank_verified"]
-  proof: string;                 // HMAC-SHA256 hex string (0x-prefixed)
+  proof: string;                 // ECDSA secp256k1 signature hex string
+  signer_address: string;        // EVM Address of the Kite Credit Oracle that signed it
   issued_at: string;             // ISO 8601
   expires_at?: string;           // ISO 8601 — issued_at + 90 days (absent on legacy attestations)
-  version: string;               // "1.0"
+  version: string;               // "2.0"
 }
 
 // ZKAttestation is kept as an alias so existing imports and DB-stored

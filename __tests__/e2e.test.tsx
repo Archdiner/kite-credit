@@ -85,12 +85,14 @@ function makeMockKiteScore(overrides: Partial<KiteScore> = {}): KiteScore {
 
 function makeMockAttestation(): ZKAttestation {
     return {
+        wallet_address: "testAddress123",
         kite_score: 750,
         tier: "Strong",
         verified_attributes: ["solana_active", "github_linked"],
         proof: "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6",
+        signer_address: "0xMockOracleAddress",
         issued_at: new Date().toISOString(),
-        version: "1.0",
+        version: "2.0",
     };
 }
 

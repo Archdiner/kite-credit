@@ -11,6 +11,7 @@ import { scoreOnChain } from "@/lib/solana";
 import { generateAttestation, isValidAttestationShape } from "@/lib/attestation";
 import { getScoreAge } from "@/lib/freshness";
 import type { OnChainData, ScoreBreakdown } from "@/types";
+import { verifyMessage } from "viem";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -301,48 +302,51 @@ describe("generateAttestation", () => {
     const onChain = scoreOnChain(makeOnChainData());
     const baseScore = assembleKiteScore({ onChain, financial: null, github: null }, "test");
 
-    it("returns all required fields with correct types", () => {
-        const att = generateAttestation(baseScore);
+    it("returns all required fields with correct types", async () => {
+        const att = await generateAttestation(baseScore, "testWallet");
         expect(typeof att.kite_score).toBe("number");
         expect(typeof att.tier).toBe("string");
         expect(Array.isArray(att.verified_attributes)).toBe(true);
         expect(typeof att.proof).toBe("string");
+        expect(typeof att.signer_address).toBe("string");
         expect(typeof att.issued_at).toBe("string");
         expect(typeof att.expires_at).toBe("string");
-        expect(att.version).toBe("1.0");
+        expect(att.version).toBe("2.0");
     });
 
-    it("kite_score matches the input score total", () => {
-        const att = generateAttestation(baseScore);
+    it("kite_score matches the input score total", async () => {
+        const att = await generateAttestation(baseScore, "testWallet");
         expect(att.kite_score).toBe(baseScore.total);
     });
 
-    it("expires_at is exactly 90 days after issued_at", () => {
-        const att = generateAttestation(baseScore);
+    it("expires_at is exactly 90 days after issued_at", async () => {
+        const att = await generateAttestation(baseScore, "testWallet");
         const issued = new Date(att.issued_at).getTime();
         const expires = new Date(att.expires_at!).getTime();
         const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
         expect(expires - issued).toBe(NINETY_DAYS_MS);
     });
 
-    it("proof starts with 0x (hex-prefixed)", () => {
-        const att = generateAttestation(baseScore);
+    it("proof starts with 0x (hex-prefixed)", async () => {
+        const att = await generateAttestation(baseScore, "testWallet");
         expect(att.proof.startsWith("0x")).toBe(true);
     });
 
-    it("proof is deterministic — same score produces the same proof", () => {
-        const att1 = generateAttestation(baseScore);
-        const att2 = generateAttestation(baseScore);
+    it("proof is deterministic — same score produces the same proof", async () => {
+        const att1 = await generateAttestation(baseScore, "testWallet");
+        const att2 = await generateAttestation(baseScore, "testWallet");
         expect(att1.proof).toBe(att2.proof);
     });
 
-    it("different total scores produce different proofs", () => {
+    it("different total scores produce different proofs", async () => {
         const scoreA = assembleKiteScore({ onChain, financial: null, github: null }, "a");
         const highOnChain = scoreOnChain(makeOnChainData({ walletAgeDays: 730, totalTransactions: 300 }));
         const scoreB = assembleKiteScore({ onChain: highOnChain, financial: null, github: null }, "b");
         // Only meaningful if the totals are actually different
         if (scoreA.total !== scoreB.total) {
-            expect(generateAttestation(scoreA).proof).not.toBe(generateAttestation(scoreB).proof);
+            const attA = await generateAttestation(scoreA, "testWalletA");
+            const attB = await generateAttestation(scoreB, "testWalletB");
+            expect(attA.proof).not.toBe(attB.proof);
         }
     });
 });
@@ -353,12 +357,14 @@ describe("generateAttestation", () => {
 
 describe("isValidAttestationShape", () => {
     const valid = {
+        wallet_address: "testWallet",
         kite_score: 742,
         tier: "Strong",
         verified_attributes: ["solana_active"],
         proof: "0xabcdef",
+        signer_address: "0x123",
         issued_at: new Date().toISOString(),
-        version: "1.0",
+        version: "2.0",
     };
 
     it("accepts a valid attestation object", () => {
@@ -395,61 +401,82 @@ describe("isValidAttestationShape", () => {
 });
 
 // ---------------------------------------------------------------------------
-// HMAC round-trip — generate then manually verify
+// ECDSA round-trip — generate then manually verify with viem
 // ---------------------------------------------------------------------------
 
-describe("HMAC round-trip verification", () => {
-    const DEV_SECRET = "dev-attestation-secret-change-me";
-
-    it("generated proof matches manually computed HMAC with the dev secret", () => {
+describe("ECDSA round-trip verification", () => {
+    it("generated signature matches the deterministic JSON payload content", async () => {
         const onChain = scoreOnChain(makeOnChainData());
-        const score = assembleKiteScore({ onChain, financial: null, github: null }, "hmac-test");
-        const att = generateAttestation(score);
+        const score = assembleKiteScore({ onChain, financial: null, github: null }, "ecdsa-test");
+        const att = await generateAttestation(score, "testWallet");
 
-        // Re-compute the same HMAC that generateAttestation uses
+        // Re-construct the deterministic payload precisely as signed
         const proofData = JSON.stringify({
-            total: score.total,
+            wallet_address: "testWallet",
+            kite_score: score.total,
             tier: score.tier,
-            sources: att.verified_attributes,
-            timestamp: score.timestamp,
+            verified_attributes: att.verified_attributes,
+            issued_at: att.issued_at,
+            expires_at: att.expires_at,
+            version: "2.0",
         });
-        const expected = "0x" + createHmac("sha256", DEV_SECRET).update(proofData).digest("hex");
 
-        expect(att.proof).toBe(expected);
+        const isValid = await verifyMessage({
+            address: att.signer_address as `0x${string}`,
+            message: proofData,
+            signature: att.proof as `0x${string}`,
+        });
+
+        expect(isValid).toBe(true);
     });
 
-    it("tampered total fails to match original proof", () => {
+    it("tampered total fails signature verification", async () => {
         const onChain = scoreOnChain(makeOnChainData());
         const score = assembleKiteScore({ onChain, financial: null, github: null }, "tamper-test");
-        const att = generateAttestation(score);
+        const att = await generateAttestation(score, "testWallet");
 
         // Attempt to verify with a different total
         const tamperedProofData = JSON.stringify({
-            total: score.total + 1,  // tampered
+            wallet_address: "testWallet",
+            kite_score: score.total + 1,  // tampered
             tier: score.tier,
-            sources: att.verified_attributes,
-            timestamp: score.timestamp,
+            verified_attributes: att.verified_attributes,
+            issued_at: att.issued_at,
+            expires_at: att.expires_at,
+            version: "2.0",
         });
-        const tampered = "0x" + createHmac("sha256", DEV_SECRET).update(tamperedProofData).digest("hex");
 
-        expect(att.proof).not.toBe(tampered);
+        const isValid = await verifyMessage({
+            address: att.signer_address as `0x${string}`,
+            message: tamperedProofData,
+            signature: att.proof as `0x${string}`,
+        });
+
+        expect(isValid).toBe(false);
     });
 
-    it("tampered tier fails to match original proof", () => {
+    it("tampered tier fails signature verification", async () => {
         const onChain = scoreOnChain(makeOnChainData());
         const score = assembleKiteScore({ onChain, financial: null, github: null }, "tier-tamper");
-        const att = generateAttestation(score);
+        const att = await generateAttestation(score, "testWallet");
 
         const tamperedProofData = JSON.stringify({
-            total: score.total,
+            wallet_address: "testWallet",
+            kite_score: score.total,
             tier: "Elite",  // tampered tier
-            sources: att.verified_attributes,
-            timestamp: score.timestamp,
+            verified_attributes: att.verified_attributes,
+            issued_at: att.issued_at,
+            expires_at: att.expires_at,
+            version: "2.0",
         });
-        const tampered = "0x" + createHmac("sha256", DEV_SECRET).update(tamperedProofData).digest("hex");
 
         if (score.tier !== "Elite") {
-            expect(att.proof).not.toBe(tampered);
+            const isValid = await verifyMessage({
+                address: att.signer_address as `0x${string}`,
+                message: tamperedProofData,
+                signature: att.proof as `0x${string}`,
+            });
+            expect(isValid).toBe(false);
         }
     });
 });

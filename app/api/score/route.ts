@@ -15,8 +15,6 @@ import { verifyWalletSignature } from "@/lib/wallet-verify";
 import { analyzeSolanaData, scoreOnChain } from "@/lib/solana";
 import { analyzeEthereumData, scoreEVM } from "@/lib/ethereum";
 import { fetchGitHubData, scoreGitHub } from "@/lib/github";
-import { plaidClient } from "@/lib/plaid";
-import { scoreFinancial } from "@/lib/reclaim";
 import { assembleKiteScore } from "@/lib/scoring";
 import { getConnectedSources } from "@/lib/scoring";
 import { generateAttestation } from "@/lib/attestation";
@@ -41,7 +39,6 @@ export async function POST(req: NextRequest) {
 
         const body = await req.json();
         const cookieStore = await cookies();
-        let plaidAccessToken = cookieStore.get("plaid_access_token")?.value;
 
         const { walletAddress, walletSignature, includeGithub } = body;
 
@@ -100,17 +97,6 @@ export async function POST(req: NextRequest) {
                     }
                 }
 
-                // If no Plaid cookie, try loading from DB
-                if (!plaidAccessToken) {
-                    const plaidConn = await getConnection(user.id, "plaid");
-                    if (plaidConn?.access_token_encrypted) {
-                        try {
-                            plaidAccessToken = decryptToken(plaidConn.access_token_encrypted);
-                        } catch {
-                            console.error("[score] Failed to decrypt stored Plaid token");
-                        }
-                    }
-                }
             }
         } catch {
             // Non-fatal: continue without DB context
@@ -153,45 +139,9 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // 3. Fetch & Score Financial Data (Plaid)
-        let financialScore = null;
-        let financialContext = "No financial data connected.";
-
-        if (plaidAccessToken) {
-            try {
-                const accountsRes = await plaidClient.accountsGet({ access_token: plaidAccessToken });
-                const now = new Date();
-                const start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-                const txRes = await plaidClient.transactionsGet({
-                    access_token: plaidAccessToken,
-                    start_date: start.toISOString().split("T")[0],
-                    end_date: now.toISOString().split("T")[0],
-                });
-
-                const accounts = accountsRes.data.accounts;
-                const totalBalance = accounts.reduce((sum, acc) => sum + (acc.balances.available ?? acc.balances.current ?? 0), 0);
-
-                let balanceBracket = "under-1k";
-                if (totalBalance >= 100000) balanceBracket = "100k+";
-                else if (totalBalance >= 25000) balanceBracket = "25k-100k";
-                else if (totalBalance >= 5000) balanceBracket = "5k-25k";
-                else if (totalBalance >= 1000) balanceBracket = "1k-5k";
-
-                const incomeConsistency = txRes.data.transactions.length > 5;
-
-                financialScore = scoreFinancial({
-                    verified: true,
-                    proofHash: "plaid_verified_" + walletAddress.slice(0, 8),
-                    balanceBracket,
-                    incomeConsistency,
-                    provider: "plaid"
-                });
-
-                financialContext = `Bank connected via Plaid. Total balance: $${totalBalance.toFixed(2)}. Transactions: ${txRes.data.transactions.length}.`;
-            } catch (error) {
-                console.error("[score] Plaid fetch failed:", error);
-            }
-        }
+        // 3. Fetch & Score Financial Data (Disabled/Removed)
+        const financialScore = null;
+        const financialContext = "No financial data connected.";
 
         // 4. GitHub Bonus (Optional) — with 24h data cache
         let githubScore = null;
@@ -301,7 +251,7 @@ Provide a 2-sentence explanation of their creditworthiness based heavily on thei
         }, explanation);
 
         // 7. Generate ZK Attestation
-        const attestation = generateAttestation(kiteScore);
+        const attestation = await generateAttestation(kiteScore, walletAddress);
 
         // 8. Persist to database if authenticated
         if (userId) {

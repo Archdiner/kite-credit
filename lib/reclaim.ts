@@ -8,6 +8,7 @@
 
 import type { FinancialData, FinancialScore } from "@/types";
 import { getAppUrl } from "@/lib/env";
+import { verifyProof as verifyReclaimProof } from "@reclaimprotocol/js-sdk";
 
 // ---------------------------------------------------------------------------
 // Reclaim verification request
@@ -83,7 +84,7 @@ export async function initiateVerification(
 // Verify Reclaim proof (mock/structure check since SDK is missing)
 // ---------------------------------------------------------------------------
 
-export function verifyProof(proof: ReclaimProof): boolean {
+export async function verifyProof(proof: ReclaimProof): Promise<boolean> {
     if (!proof) return false;
 
     // 1. Validate structure
@@ -102,8 +103,13 @@ export function verifyProof(proof: ReclaimProof): boolean {
         return false;
     }
 
-    // Note: in a real production env with @reclaimprotocol/js-sdk, we would call:
-    // return Reclaim.verifySignedProof(proof);
+    // Verify cryptographic signature via official SDK
+    try {
+        const isValid = await verifyReclaimProof(proof as any);
+        if (!isValid) return false;
+    } catch {
+        return false;
+    }
 
     return true;
 }

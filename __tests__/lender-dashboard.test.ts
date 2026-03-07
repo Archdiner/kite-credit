@@ -139,7 +139,6 @@ describe("POST /api/lender/auth", () => {
                             single: jest.fn().mockResolvedValue({ data: null, error: null }),
                         }),
                         single: jest.fn().mockResolvedValue({ data: null, error: null }),
-                        eq: jest.fn().mockReturnThis(),
                     }),
                     // For count queries (select with { count: "exact", head: true })
                     // authenticateApiKey also calls this table

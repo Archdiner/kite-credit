@@ -79,19 +79,19 @@ describe("attestation", () => {
         timestamp: new Date().toISOString()
     };
 
-    it("generates a valid attestation", () => {
-        const attestation = generateAttestation(mockScore);
+    it("generates a valid attestation", async () => {
+        const attestation = await generateAttestation(mockScore, "testWallet");
         expect(attestation.kite_score).toBe(750);
         expect(attestation.tier).toBe("Strong");
         expect(attestation.verified_attributes).toContain("solana_active");
         expect(attestation.verified_attributes).toContain("bank_verified");
         expect(attestation.verified_attributes).toContain("github_linked");
         expect(attestation.proof).toMatch(/^0x/);
-        expect(attestation.version).toBe("1.0");
+        expect(attestation.version).toBe("2.0");
     });
 
-    it("validates attestation format", () => {
-        const attestation = generateAttestation(mockScore);
+    it("validates attestation format", async () => {
+        const attestation = await generateAttestation(mockScore, "testWallet");
         expect(isValidAttestationShape(attestation)).toBe(true);
         expect(isValidAttestationShape(null)).toBe(false);
         expect(isValidAttestationShape({})).toBe(false);

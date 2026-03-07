@@ -15,58 +15,52 @@
 
 import type { KiteScore, SignedAttestation } from "@/types";
 import { getConnectedSources } from "@/lib/scoring";
-import { createHmac } from "node:crypto";
+import { privateKeyToAccount } from "viem/accounts";
+import { hashMessage } from "viem";
 
-function getAttestationSecret(): string {
-    const secret = process.env.ATTESTATION_SECRET;
-    const defaultSecret = "dev-attestation-secret-change-me";
+function getOracleAccount() {
+    // We expect a hex private key starting with 0x
+    const secret = process.env.ATTESTATION_PRIVATE_KEY || process.env.ATTESTATION_SECRET;
+    const defaultSecret = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"; // Anvil account #0
 
     if (!secret || secret === defaultSecret) {
         if (process.env.NODE_ENV === "production") {
-            // Throwing here prevents the server from starting with a forged-proof risk.
             throw new Error(
-                "[attestation] ATTESTATION_SECRET is missing or set to the default value. " +
-                "All attestations would be forgeable. Set a random 32-byte hex value in your environment."
+                "[attestation] ATTESTATION_PRIVATE_KEY is missing. " +
+                "All attestations would be forgeable. Set a 32-byte hex 0x-prefixed EVM private key."
             );
         }
-        if (process.env.NODE_ENV !== "test") {
-            console.warn(
-                "[attestation] WARNING: Using default ATTESTATION_SECRET. " +
-                "Run `openssl rand -hex 32` and set ATTESTATION_SECRET before deploying to production."
-            );
-        }
-        return defaultSecret;
     }
 
-    return secret;
+    const keyToUse = secret && secret.startsWith("0x") ? secret : defaultSecret;
+    return privateKeyToAccount(keyToUse as `0x${string}`);
 }
 
-export function generateAttestation(score: KiteScore): SignedAttestation {
+export async function generateAttestation(score: KiteScore, walletAddress: string): Promise<SignedAttestation> {
     const connectedSources = getConnectedSources(score.breakdown);
-
-    const proofData = JSON.stringify({
-        total: score.total,
-        tier: score.tier,
-        sources: connectedSources,
-        timestamp: score.timestamp,
-    });
-
-    const secret = getAttestationSecret();
-    const hmac = createHmac("sha256", secret);
-    hmac.update(proofData);
-    const proofHex = hmac.digest("hex");
-
     const issuedAt = score.timestamp;
     const expiresAt = new Date(new Date(issuedAt).getTime() + 90 * 24 * 60 * 60 * 1000).toISOString();
 
-    return {
+    const payload = {
+        wallet_address: walletAddress,
         kite_score: score.total,
         tier: score.tier,
         verified_attributes: connectedSources,
-        proof: `0x${proofHex}`,
         issued_at: issuedAt,
         expires_at: expiresAt,
-        version: "1.0",
+        version: "2.0",
+    };
+
+    const payloadString = JSON.stringify(payload);
+
+    // Sign the message with the Kite Oracle private key using secp256k1
+    const oracle = getOracleAccount();
+    const signature = await oracle.signMessage({ message: payloadString });
+
+    return {
+        ...payload,
+        proof: signature,
+        signer_address: oracle.address,
     };
 }
 
@@ -80,11 +74,13 @@ export function isValidAttestationShape(attestation: unknown): attestation is Si
     const a = attestation as Record<string, unknown>;
 
     return (
+        typeof a.wallet_address === "string" &&
         typeof a.kite_score === "number" &&
         typeof a.tier === "string" &&
         Array.isArray(a.verified_attributes) &&
         typeof a.proof === "string" &&
+        typeof a.signer_address === "string" &&
         typeof a.issued_at === "string" &&
-        typeof a.version === "string"
+        ["1.0", "2.0"].includes(a.version as string)
     );
 }

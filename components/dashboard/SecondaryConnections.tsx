@@ -7,8 +7,6 @@ interface SecondaryConnectionsProps {
     changingGitHub: boolean;
     onConnectGitHub: () => void;
     onChangeGitHub: () => void;
-
-    // Using simple placeholders for the coming soon financial connector for now
 }
 
 export default function SecondaryConnections({
@@ -48,7 +46,7 @@ export default function SecondaryConnections({
                 </p>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-6 relative z-20">
+            <div className="max-w-md mx-auto relative z-20">
                 {/* GitHub Developer Card */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
@@ -57,7 +55,7 @@ export default function SecondaryConnections({
                     className="relative group"
                 >
                     <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/20 to-violet-600/20 rounded-2xl blur-xl group-hover:blur-2xl transition-all opacity-60" />
-                    <div className="relative bg-slate-900/80 backdrop-blur-lg rounded-2xl p-8 border border-indigo-500/20 hover:border-indigo-400/40 transition-all shadow-2xl h-full flex flex-col">
+                    <div className="relative bg-slate-900/80 backdrop-blur-lg rounded-2xl p-8 border border-indigo-500/20 hover:border-indigo-400/40 transition-all shadow-2xl flex flex-col min-h-[300px]">
                         <div className="flex items-center gap-4 mb-4">
                             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-400 to-violet-600 p-[1px] shadow-[0_0_20px_rgba(99,102,241,0.3)] shrink-0">
                                 <div className="w-full h-full bg-slate-900 rounded-full flex items-center justify-center">
@@ -93,39 +91,6 @@ export default function SecondaryConnections({
                                 Connect GitHub
                             </button>
                         )}
-                    </div>
-                </motion.div>
-
-                {/* Financial Verification Card (Coming Soon) */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.5 }}
-                    className="relative group overflow-hidden"
-                >
-                    <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 to-amber-600/10 rounded-2xl blur-xl opacity-40" />
-                    <div className="relative bg-slate-900/40 backdrop-blur-lg rounded-2xl p-8 border border-white/5 shadow-2xl h-full flex flex-col grayscale opacity-70 hover:opacity-100 hover:grayscale-0 transition-all duration-500">
-                        <div className="absolute top-4 right-4 bg-white/10 text-white/60 text-[10px] uppercase font-bold tracking-widest px-3 py-1.5 rounded-md border border-white/10">
-                            Coming Soon
-                        </div>
-
-                        <div className="flex items-center gap-4 mb-4">
-                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-amber-600 p-[1px] shadow-[0_0_20px_rgba(249,115,22,0.2)] shrink-0">
-                                <div className="w-full h-full bg-slate-900 rounded-full flex items-center justify-center">
-                                    <div className="w-4 h-4 bg-orange-400 rotate-45 opacity-50" />
-                                </div>
-                            </div>
-                            <h3 className="text-xl font-bold text-white/50 tracking-wide uppercase">
-                                Financial
-                            </h3>
-                        </div>
-                        <p className="text-sm text-white/30 mb-8 leading-relaxed flex-grow">
-                            ZK-verified bank balance, income consistency, and cash flow health securely verified on-device.
-                        </p>
-
-                        <div className="mt-auto w-full py-4 bg-white/5 border border-white/5 text-white/20 font-bold tracking-wider uppercase text-sm rounded-xl text-center cursor-not-allowed">
-                            Connect Bank
-                        </div>
                     </div>
                 </motion.div>
             </div>
