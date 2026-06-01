@@ -105,7 +105,7 @@ export async function verifyProof(proof: ReclaimProof): Promise<boolean> {
 
     // Verify cryptographic signature via official SDK
     try {
-        const isValid = await verifyReclaimProof(proof as any);
+        const isValid = await verifyReclaimProof(proof as unknown as Parameters<typeof verifyReclaimProof>[0]);
         if (!isValid) return false;
     } catch {
         return false;

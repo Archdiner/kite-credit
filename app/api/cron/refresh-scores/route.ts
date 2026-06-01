@@ -51,7 +51,7 @@ export async function GET(req: Request) {
 
             let evmScore = null;
             let githubScore = null;
-            let financialScore = null;
+            const financialScore = null;
             let secondaryWalletCount = 0;
 
             if (connections) {
@@ -117,9 +117,10 @@ export async function GET(req: Request) {
             }).catch((err) => console.error(`[cron] Webhook dispatch error for ${walletAddress}:`, err));
 
             results.push({ wallet: walletAddress, status: "success", newScore: kiteScore.total });
-        } catch (err: any) {
+        } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : String(err);
             console.error(`[cron] Failed to refresh score for ${walletAddress}:`, err);
-            results.push({ wallet: walletAddress, status: "error", error: err.message });
+            results.push({ wallet: walletAddress, status: "error", error: errorMessage });
         }
     }
 

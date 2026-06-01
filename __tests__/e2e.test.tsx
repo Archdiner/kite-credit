@@ -307,7 +307,7 @@ describe("ShareScoreCard Component", () => {
     it("renders attestation section with HMAC label when attestation provided", () => {
         render(<ShareScoreCard score={mockScore} attestation={mockAttestation} />);
         expect(screen.getByText("Verified Attestation")).toBeInTheDocument();
-        expect(screen.getByText("HMAC-SHA256 signed")).toBeInTheDocument();
+        expect(screen.getByText("secp256k1 signed")).toBeInTheDocument();
     });
 
     it("renders without crashing when attestation is null", () => {
