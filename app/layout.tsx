@@ -4,6 +4,7 @@ import "./globals.css";
 import SmoothScroll from "@/components/SmoothScroll";
 import Providers from "@/components/providers/Providers";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import Script from "next/script";
 
 const outfit = Outfit({
     variable: "--font-outfit",
@@ -69,6 +70,14 @@ export default function RootLayout({
 }>) {
     return (
         <html lang="en">
+            <head>
+                <Script
+                    async
+                    src="https://getzybit.com/api/loader/v1"
+                    data-zybit-key="zyb_kiayt6zukhi0e7yz6161eojubnfxbt3w"
+                    strategy="beforeInteractive"
+                />
+            </head>
             <body
                 className={`${outfit.variable} ${inter.variable} antialiased`}
                 suppressHydrationWarning

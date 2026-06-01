@@ -39,8 +39,8 @@ export default function AttestationCard({ attestation }: { attestation: ZKAttest
                 </div>
 
                 <div className="bg-black/30 rounded-lg p-3 mb-4 border border-white/5 overflow-hidden">
-                    <p className="text-[10px] text-white/30 font-mono mb-1 tracking-wider">PROOF HASH</p>
-                    <code className="text-xs text-emerald-300/80 font-mono break-all leading-relaxed block">
+                    <p className="text-[10px] text-white/30 font-mono mb-1 tracking-wider">ECDSA SIGNATURE</p>
+                    <code className="text-[9px] text-emerald-300/80 font-mono break-all leading-relaxed block">
                         {attestation.proof}
                     </code>
                 </div>

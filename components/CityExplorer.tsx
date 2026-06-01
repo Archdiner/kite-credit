@@ -50,6 +50,7 @@ const sections: Record<string, CitySection> = {
 
 export default function CityExplorer() {
     const [activeSection, setActiveSection] = useState<SectionId>("overview");
+    const [showStory, setShowStory] = useState(false);
 
     // Calculate the transform origin and scale based on the active section
     const getVariants = () => {
@@ -297,13 +298,13 @@ export default function CityExplorer() {
                                 {Object.values(sections).map((section) => (
                                     <motion.button
                                         key={section.id}
-                                        className="absolute w-12 h-12 -ml-6 -mt-6 md:w-20 md:h-20 md:-ml-10 md:-mt-10 rounded-full bg-slate-900/40 backdrop-blur-sm border-2 border-white/20 shadow-[0_0_30px_rgba(255,255,255,0.2)] z-10 flex items-center justify-center group cursor-pointer hover:border-sky-400 transition-colors"
+                                        className="absolute w-12 h-12 -ml-6 -mt-6 md:w-20 md:h-20 md:-ml-10 md:-mt-10 rounded-full bg-slate-900/40 backdrop-blur-sm border-2 border-white/20 shadow-[0_0_30px_rgba(255,255,255,0.2)] z-10 flex items-center justify-center group cursor-not-allowed hover:border-sky-400 transition-colors"
                                         style={{ left: `${section.x}%`, top: `${section.y}%` }}
                                         initial={{ opacity: 0, scale: 0 }}
                                         animate={{ opacity: 1, scale: 1 }}
                                         exit={{ opacity: 0, scale: 0 }}
                                         whileHover={{ scale: 1.15 }}
-                                        onClick={() => setActiveSection(section.id as SectionId)}
+                                        onClick={(e) => e.preventDefault()}
                                     >
                                         <div className={`absolute inset-0 rounded-full bg-gradient-to-tr ${section.color} opacity-30 group-hover:opacity-60 blur-md transition-opacity`} />
 
@@ -320,19 +321,45 @@ export default function CityExplorer() {
 
                                 {/* CTA Button - Responsive Position */}
                                 <motion.div
-                                    className="absolute transform -translate-x-1/2 flex items-center justify-center pointer-events-auto z-20 left-1/2 bottom-[15%] md:top-[63%] md:bottom-auto"
+                                    className="absolute transform -translate-x-1/2 flex flex-col items-center justify-center pointer-events-auto z-20 left-1/2 bottom-[15%] md:top-[63%] md:bottom-auto w-full px-4"
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, y: 20 }}
                                     transition={{ delay: 0.5 }}
                                 >
-                                    <Link
-                                        href="/auth"
+                                    <button
+                                        onClick={() => setShowStory(!showStory)}
                                         className="bg-white text-slate-900 px-8 py-3 md:px-10 md:py-4 rounded-full font-bold tracking-widest uppercase text-sm md:text-base hover:bg-sky-50 transition-all shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:shadow-[0_0_30px_rgba(255,255,255,0.5)] flex items-center gap-3 hover:-translate-y-1 duration-300 group"
                                     >
-                                        Take off now
-                                        <span className="text-sky-500 group-hover:translate-x-1 transition-transform">{"->"}</span>
-                                    </Link>
+                                        Bigger things in progress
+                                        <span className={`text-sky-500 transition-transform duration-300 ${showStory ? 'rotate-90' : 'group-hover:translate-x-1'}`}>{"->"}</span>
+                                    </button>
+
+                                    <AnimatePresence>
+                                        {showStory && (
+                                            <motion.div 
+                                                initial={{ opacity: 0, y: -10, height: 0 }}
+                                                animate={{ opacity: 1, y: 0, height: "auto" }}
+                                                exit={{ opacity: 0, y: -10, height: 0 }}
+                                                className="mt-6 max-w-lg bg-slate-900/90 backdrop-blur-md border border-white/20 p-6 md:p-8 rounded-2xl shadow-2xl relative overflow-hidden"
+                                            >
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); setShowStory(false); }}
+                                                    className="absolute top-4 right-4 text-white/50 hover:text-white transition-colors text-xl font-light"
+                                                >
+                                                    ×
+                                                </button>
+                                                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-sky-500 via-indigo-500 to-violet-500" />
+                                                <h3 className="text-xl md:text-2xl font-bold text-white mb-4">The Pivot</h3>
+                                                <p className="text-sky-100/90 leading-relaxed font-light text-sm md:text-base">
+                                                    I recently met with an Ava Labs guy who shared a hard truth: the issue of undercollateralized lending runs deep. There are institutional problems that aren&apos;t easily solved, no matter how perfect the score is.
+                                                </p>
+                                                <p className="text-white mt-4 font-medium tracking-wide text-sm md:text-base">
+                                                    Now I&apos;m working to overcome this. Stay tuned.
+                                                </p>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
                                 </motion.div>
                             </>
                         )}

@@ -496,7 +496,7 @@ function DashboardContent() {
             <div className="relative z-10">
                 {/* Header */}
                 <header className="px-4 sm:px-6 md:px-12 pt-6 sm:pt-8 pb-4 border-b border-white/5 bg-slate-900/20 backdrop-blur-xl sticky top-0 z-50">
-                    <div className="max-w-6xl mx-auto flex items-center justify-between gap-2">
+                    <div className="max-w-6xl mx-auto flex items-center justify-between gap-4">
                         <Link href="/" className="flex items-center gap-3 group min-w-0 shrink-0">
                             <motion.div
                                 animate={{ rotate: 360 }}
@@ -507,11 +507,14 @@ function DashboardContent() {
                                 Kite
                             </h1>
                         </Link>
-                        <div className="flex items-center gap-2 sm:gap-4">
-                            <div className="hidden sm:flex items-center gap-2 bg-slate-800/50 border border-white/5 px-3 py-1.5 rounded-lg backdrop-blur-md">
+                        <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2 bg-slate-800/50 border border-white/5 px-3 py-1.5 rounded-lg backdrop-blur-md">
                                 <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.5)]" />
-                                <span className="text-xs text-white/80 font-mono tracking-wide">
+                                <span className="hidden sm:block text-xs text-white/80 font-mono tracking-wide max-w-[150px] truncate">
                                     {user.name || user.email}
+                                </span>
+                                <span className="sm:hidden text-xs text-white/80 font-mono tracking-wide">
+                                    {user.name?.[0] || user.email[0]?.toUpperCase()}
                                 </span>
                             </div>
                             <button

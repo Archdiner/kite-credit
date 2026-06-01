@@ -173,7 +173,7 @@ export default function ShareScoreCard({ score, attestation, activeMode = "crypt
                                     v{attestation.version} • {new Date(attestation.issued_at).toLocaleDateString()}
                                 </span>
                                 <span className="text-[9px] text-sky-300/50 font-mono">
-                                    HMAC-SHA256 signed
+                                    secp256k1 signed
                                 </span>
                             </div>
                         </div>
